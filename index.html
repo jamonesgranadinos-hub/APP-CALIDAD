@@ -188,13 +188,13 @@ const LOTES_COLS = ["Lote interno","Fecha entrada","Proveedor","Lote de origen",
 const TEST_COLS = ["Lote interno","Fecha","Nº testigo","Nº pieza","Tipo","Peso (kg)","Tª (ºC)","pH","Grasa","ETG","Observaciones"];
 const YN = [["prodConformes","¿Revisados conformes los productos?"],["docRevisada","¿Se ha revisado toda la documentación?"],["cumpleEspec","¿Documentación y proveedor cumplen las especificaciones?"],["aptoExport","¿Apto para exportación?"]];
 const LSKEY = "appcalidad.v1";
-const APP_VERSION = "3.2 · 31/10/2026";
+const APP_VERSION = "3.3 · 31/10/2026";
 const SINO = ["Productos revisados conformes","Documentación revisada","Cumple especificaciones","Apto exportación"];
 const TABLAS = {
   Lotes:{ cab:[...LOTES_COLS,"ID app"], k:"ID app", ocultas:["ID app"], orden:[["Fecha entrada",1]],
     fmt:Object.assign(Object.fromEntries(LOTES_COLS.map(c=>[c,"@"])),{"Fecha entrada":"dd/mm/yyyy","Nº piezas lote":"0","Peso total lote (kg)":"#,##0.00"}) },
   Testigos:{ cab:[...TEST_COLS,"ID testigo app","ID lote app"], k:"ID testigo app", ocultas:["ID testigo app","ID lote app"], orden:[["Fecha",1],["Lote interno",1],["Nº testigo",1]],
-    fmt:{"Lote interno":"@","Fecha":"dd/mm/yyyy","Nº testigo":"0","Nº pieza":"@","Tipo":"@","Peso (kg)":"0.00","Tª (ºC)":"0.0","pH":"0.00","ETG":"@","Observaciones":"@"} },
+    fmt:{"Lote interno":"@","Fecha":"dd/mm/yyyy","Nº testigo":"@","Nº pieza":"@","Tipo":"@","Peso (kg)":"0.00","Tª (ºC)":"0.0","pH":"0.00","ETG":"@","Observaciones":"@"} },
   Temperaturas:{ cab:["Fecha","Sala","Tª (ºC)","HR (%)","Horas funcionamiento","Estado","Incidencia","Hora registro","ID app","Orden"], k:"ID app", ocultas:["ID app","Orden"], orden:[["Fecha",1],["Orden",1]],
     fmt:{"Fecha":"dd/mm/yyyy","Sala":"@","Tª (ºC)":"0.0","HR (%)":"0.0","Horas funcionamiento":"0.0","Estado":"@","Incidencia":"@","Hora registro":"@"} }
 };
@@ -510,7 +510,7 @@ function stats(ts){
 }
 function vLote(){
   const l = state.lotes[view.id]; if(!l||l.deleted){ view={name:"entrada"}; return vEntrada(); }
-  const ts = (l.testigos||[]).slice().sort((a,b)=>a.n-b.n);
+  const ts = ordenTest(l);
   const s = stats(ts);
   return `<button class="back" data-go="entrada">← Lotes</button>
   <div class="row"><h1 class="grow" style="margin-bottom:6px">Lote ${esc(l.loteInterno)}</h1><button class="btn" id="editLote">✎ Editar lote</button></div>
@@ -524,15 +524,15 @@ function vLote(){
   </div>
   ${vTallasLote(l)}
   <h2>Testigos</h2>
-  <div><button class="btn pri big" id="addTest">＋ Añadir testigo nº ${nextN(l)}</button></div>
+  <div><button class="btn pri big" id="addTest">＋ Añadir testigo</button></div>
   <div class="stats">
     <div class="stat"><b>${s.n}</b><span>Testigos</span></div>
     <div class="stat"><b>${s.peso!=null?fmtN(s.peso,2):"—"}</b><span>Peso medio (kg)</span></div>
     <div class="stat"><b>${s.ph!=null?fmtN(s.ph,2):"—"}</b><span>pH medio</span></div>
     <div class="stat"><b>${s.temp!=null?fmtN(s.temp,1):"—"}</b><span>Tª media (ºC)</span></div>
   </div>
-  ${ts.length?`<div class="tw"><table class="t"><thead><tr><th>Nº</th><th>Pieza</th><th>Tipo</th><th>Peso</th><th>Tª</th><th>pH</th><th>Grasa</th><th>ETG</th></tr></thead><tbody>
-    ${ts.map(t=>`<tr class="click" data-test="${t.n}"><td><b>${t.n}</b></td><td>${esc(t.pieza)}</td><td>${esc(t.tipo)}</td><td class="num">${fmtN(t.peso,2)}</td><td class="num">${fmtN(t.temp,1)}</td><td class="num">${fmtN(t.ph,2)}</td><td class="num">${t.grasa!=null?fmtN(t.grasa,t.grasa%1?1:0):""}</td><td>${t.etg?`<span class="tag ${t.etg==="SI"?"ok":"bad"}">${t.etg}</span>`:""}</td></tr>`).join("")}
+  ${ts.length?`<div class="tw"><table class="t"><thead><tr><th>Nº testigo</th><th>Pieza</th><th>Tipo</th><th>Peso</th><th>Tª</th><th>pH</th><th>Grasa</th><th>ETG</th></tr></thead><tbody>
+    ${ts.map(t=>`<tr class="click" data-test="${esc(t.tid)}"><td><b>${esc(t.n)}</b></td><td>${esc(t.pieza)}</td><td>${esc(t.tipo)}</td><td class="num">${fmtN(t.peso,2)}</td><td class="num">${fmtN(t.temp,1)}</td><td class="num">${fmtN(t.ph,2)}</td><td class="num">${t.grasa!=null?fmtN(t.grasa,t.grasa%1?1:0):""}</td><td>${t.etg?`<span class="tag ${t.etg==="SI"?"ok":"bad"}">${t.etg}</span>`:""}</td></tr>`).join("")}
   </tbody></table></div><p class="muted" style="font-size:16px">Toca un testigo para corregirlo.</p>`:`<div class="empty">Sin testigos todavía.</div>`}
   <h2>Valoración final</h2>
   <div class="card">
@@ -607,7 +607,7 @@ function vUbic(){
       <div class="meta">${x.ts.map(t=>`${t} (${fmtN(x.l.tallas[t].n,0)})`).join(" · ")}</div></div></button>`).join("")}</div>`; }).join("")
   : `<div class="empty">Todavía no hay lotes con tallas registradas. Entra en un lote y pulsa «Apuntar piezas por talla».</div>`}`;
 }
-function nextN(l){ return (l.testigos||[]).reduce((m,t)=>Math.max(m,t.n),0)+1; }
+function ordenTest(l){ return (l.testigos||[]).map((t,i)=>[t,i]).sort((a,b)=>((a[0].ts||0)-(b[0].ts||0))||(a[1]-b[1])).map(x=>x[0]); }
 
 /* ---------- Formulario de lote ---------- */
 let draft = null;
@@ -648,16 +648,17 @@ function vLoteForm(){
 
 /* ---------- Formulario de testigo ---------- */
 function vTestForm(){
-  const l = state.lotes[view.id], d = draft, isNew = view.n==null;
+  const l = state.lotes[view.id], d = draft, isNew = !view.tid;
   const dec = (v,dd)=> v!=null ? String(v).replace(".",",") : "";
   return `<button class="back" id="cancel">← ${isNew?"Volver al lote":"Volver sin guardar"}</button>
-  <div class="ntest"><b>Testigo nº ${d.n}</b><span class="muted">· Lote ${esc(l.loteInterno)}</span></div>
+  <div class="ntest"><b>${isNew?"Nuevo testigo":"Testigo nº "+esc(d.n)}</b><span class="muted">· Lote ${esc(l.loteInterno)}</span></div>
   <form id="f" autocomplete="off" novalidate>
     <div class="card">
       <div class="grid2">
-        <div class="f"><label class="l" for="pieza">Nº pieza <span class="req">*</span></label><input class="in" id="pieza" inputmode="numeric" value="${esc(d.pieza)}" enterkeyhint="next"><div class="ferr" id="e_pieza"></div></div>
-        <div class="f"><label class="l" for="fecha">Fecha</label><input class="in" type="date" id="fecha" value="${esc(d.fecha)}"></div>
+        <div class="f"><label class="l" for="ntest">Nº testigo (brida) <span class="req">*</span></label><input class="in bignum" id="ntest" inputmode="numeric" value="${esc(d.n)}" enterkeyhint="next"><div class="ferr" id="e_ntest"></div></div>
+        <div class="f"><label class="l" for="pieza">Nº pieza <span class="req">*</span></label><input class="in bignum" id="pieza" inputmode="numeric" value="${esc(d.pieza)}" enterkeyhint="next"><div class="ferr" id="e_pieza"></div></div>
       </div>
+      <div class="f"><label class="l" for="fecha">Fecha</label><input class="in" type="date" id="fecha" value="${esc(d.fecha)}"></div>
       <div class="f"><label class="l" for="tipo">Tipo de producto</label>
         <select class="in" id="tipo"><option value="">— Elige el producto —</option>${(d.tipo&&!TIPOS.includes(d.tipo)?[d.tipo]:[]).concat(TIPOS).map(t=>`<option value="${esc(t)}"${d.tipo===t?" selected":""}>${esc(t)}</option>`).join("")}</select>
       </div>
@@ -699,7 +700,7 @@ function bindView(){
       if(await ask(`¿Borrar el movimiento del ${fmtD(m.fecha)} (${m.tallas.join(", ")} → ${salaCorta(m.destino)})?`,"Borrar")){
         const c=JSON.parse(JSON.stringify(l)); c.movs=c.movs.filter(x=>x.mid!==m.mid); c.delOps=(c.delOps||[]).concat([{t:"Movimientos",col:"ID mov",val:m.mid}]);
         commit(c); toast("Movimiento borrado"); render(); } });
-    app.querySelectorAll("[data-test]").forEach(r=>r.onclick=()=>{ const t=l.testigos.find(x=>x.n==r.dataset.test); draft=Object.assign({},t); go({name:"testForm",id:l.id,n:t.n}); });
+    app.querySelectorAll("[data-test]").forEach(r=>r.onclick=()=>{ const t=l.testigos.find(x=>x.tid===r.dataset.test); draft=Object.assign({},t); go({name:"testForm",id:l.id,tid:t.tid}); });
   }
   if(view.name==="loteForm"||view.name==="testForm"){
     // Enter = siguiente campo
@@ -812,14 +813,14 @@ function bindView(){
     $("#cancel").onclick=()=>go({name:"lote",id:view.id});
     $("#saveEnd").onclick=()=>saveTest(false);
     const sn=$("#saveNext"); if(sn) sn.onclick=()=>saveTest(true);
-    const del=$("#delTest"); if(del) del.onclick=async()=>{ if(await ask(`¿Borrar el testigo nº ${view.n}?`,"Borrar")){ const l=JSON.parse(JSON.stringify(state.lotes[view.id])); const gone=l.testigos.filter(t=>t.n===view.n).map(t=>t.tid); l.testigos=l.testigos.filter(t=>t.n!==view.n); l.delTids=(l.delTids||[]).concat(gone); commit(l); toast("Testigo borrado"); go({name:"lote",id:l.id}); } };
-    if(view.n==null) setTimeout(()=>{ const el=$("#pieza"); if(el && document.activeElement===document.body) el.focus(); },50);
+    const del=$("#delTest"); if(del) del.onclick=async()=>{ if(await ask(`¿Borrar el testigo nº ${draft.n}?`,"Borrar")){ const l=JSON.parse(JSON.stringify(state.lotes[view.id])); l.testigos=l.testigos.filter(t=>t.tid!==view.tid); l.delTids=(l.delTids||[]).concat([view.tid]); commit(l); toast("Testigo borrado"); go({name:"lote",id:l.id}); } };
+    if(!view.tid) setTimeout(()=>{ const el=$("#ntest"); if(el && document.activeElement===document.body) el.focus(); },50);
   }
 }
 
 function openTest(l, keep){
-  const last = (l.testigos||[]).slice().sort((a,b)=>b.n-a.n)[0];
-  draft={n:nextN(l), fecha: keep?keep.fecha:today(), pieza:"", tipo: keep?keep.tipo:(last?last.tipo:(state.lastTipo||"")), peso:null,temp:null,ph:null,grasa:null, etg: keep?keep.etg:"", obs:""};
+  const last = ordenTest(l).slice(-1)[0];
+  draft={n:"", fecha: keep?keep.fecha:today(), pieza:"", tipo: keep?keep.tipo:(last?last.tipo:(state.lastTipo||"")), peso:null,temp:null,ph:null,grasa:null, etg: keep?keep.etg:"", obs:""};
   go({name:"testForm",id:l.id});
 }
 
@@ -853,18 +854,21 @@ function saveLote(){
 
 function saveTest(next){
   const d=draft; const l=JSON.parse(JSON.stringify(state.lotes[view.id]));
-  d.pieza=$("#pieza").value.trim(); d.fecha=$("#fecha").value||today(); d.obs=$("#obs").value.trim();
+  d.n=$("#ntest").value.trim(); d.pieza=$("#pieza").value.trim(); d.fecha=$("#fecha").value||today(); d.obs=$("#obs").value.trim();
   d.tipo=$("#tipo").value;
   let bad=false;
   const p=$("#pieza"); p.classList.remove("err"); $("#e_pieza").textContent="";
   if(!d.pieza){ p.classList.add("err"); $("#e_pieza").textContent="El Nº de pieza es obligatorio"; bad=true; }
+  const nt=$("#ntest"); nt.classList.remove("err"); $("#e_ntest").textContent="";
+  if(!d.n){ nt.classList.add("err"); $("#e_ntest").textContent="Escribe el Nº de testigo (brida)"; bad=true; }
+  else if((l.testigos||[]).some(x=>x.tid!==d.tid && String(x.n).trim().toUpperCase()===d.n.toUpperCase())){ nt.classList.add("err"); $("#e_ntest").textContent="Ese Nº de testigo ya está en este lote"; bad=true; }
   const r={}; for(const k of ["peso","temp","ph","grasa"]){ const x=numField(k,k==="temp"?{}:{min:0}); if(x.bad) bad=true; else r[k]=x.v; }
   if(bad){ toast("Revisa los campos marcados"); return; }
   Object.assign(d,r);
-  const t={tid:d.tid||uid(),n:d.n,fecha:d.fecha,pieza:d.pieza,tipo:d.tipo||"",peso:d.peso,temp:d.temp,ph:d.ph,grasa:d.grasa,etg:d.etg||"",obs:d.obs};
+  const t={tid:d.tid||uid(),ts:d.ts||Date.now(),n:d.n,fecha:d.fecha,pieza:d.pieza,tipo:d.tipo||"",peso:d.peso,temp:d.temp,ph:d.ph,grasa:d.grasa,etg:d.etg||"",obs:d.obs};
   l.testigos = l.testigos||[];
   const i=l.testigos.findIndex(x=>x.tid===t.tid);
-  if(i>=0) l.testigos[i]=t; else { if(view.n==null) t.n=nextN(l); l.testigos.push(t); }
+  if(i>=0) l.testigos[i]=t; else l.testigos.push(t);
   if(t.tipo) state.lastTipo=t.tipo;
   commit(l);
   toast(`Testigo nº ${t.n} guardado`);
@@ -902,7 +906,7 @@ function desdeServidor(datos){
       dac:sv(r["DAC"]),nPiezas:nv(r["Nº piezas lote"]),pesoTotal:nv(r["Peso total lote (kg)"]),prodConformes:sv(r["Productos revisados conformes"]),docRevisada:sv(r["Documentación revisada"]),
       cumpleEspec:sv(r["Cumple especificaciones"]),aptoExport:sv(r["Apto exportación"]),destinoNoApto:sv(r["Destino si no apto"]),responsable:sv(r["Responsable"]),hallazgos:sv(r["Hallazgos"]),testigos:[]}; });
   objetos(datos.Testigos).forEach(r=>{ const l=lotes[sv(r["ID lote app"])], tid=sv(r["ID testigo app"]); if(!l||!tid) return;
-    l.testigos.push({tid,n:nv(r["Nº testigo"]),fecha:sv(r["Fecha"]),pieza:sv(r["Nº pieza"]),tipo:sv(r["Tipo"]),peso:nv(r["Peso (kg)"]),temp:nv(r["Tª (ºC)"]),ph:nv(r["pH"]),
+    l.testigos.push({tid,n:sv(r["Nº testigo"]),fecha:sv(r["Fecha"]),pieza:sv(r["Nº pieza"]),tipo:sv(r["Tipo"]),peso:nv(r["Peso (kg)"]),temp:nv(r["Tª (ºC)"]),ph:nv(r["pH"]),
       grasa:nv(r["Grasa"]),etg:sv(r["ETG"]),obs:sv(r["Observaciones"])}); });
   Object.values(lotes).forEach(l=>{ l.tallas={}; l.movs=[]; });
   objetos(datos.Tallas).forEach(r=>{ const l=lotes[sv(r["ID lote"])], t=sv(r["Talla"]); if(!l||!TALLAS.includes(t)) return;
@@ -1095,7 +1099,7 @@ function buildXlsx(lotes){
 
   const lr = lotes.map(l=>[["s",l.loteInterno],["d",l.fechaEntrada],["s",l.proveedor],["s",l.loteOrigen],["s",l.albaran],["s",l.dac],["n",l.nPiezas,7],["n",l.pesoTotal,4],["s",l.prodConformes],["s",l.docRevisada],["s",l.cumpleEspec],["s",l.aptoExport],["s",l.destinoNoApto],["s",l.responsable||RESP_DEF],["s",l.hallazgos]]);
   const tr = [];
-  lotes.forEach(l=> (l.testigos||[]).slice().sort((a,b)=>a.n-b.n).forEach(t=> tr.push([["s",l.loteInterno],["d",t.fecha],["n",t.n,7],["s",t.pieza],["s",t.tipo],["n",t.peso,3],["n",t.temp,5],["n",t.ph,3],["n",t.grasa,0],["s",t.etg],["s",t.obs]])));
+  lotes.forEach(l=> ordenTest(l).forEach(t=> tr.push([["s",l.loteInterno],["d",t.fecha],["s",String(t.n)],["s",t.pieza],["s",t.tipo],["n",t.peso,3],["n",t.temp,5],["n",t.ph,3],["n",t.grasa,0],["s",t.etg],["s",t.obs]])));
 
   const s1=sheet(LOTES_COLS,[16,13,24,16,13,14,12,14,13,13,13,12,20,20,40],lr,"rId1");
   const s2=sheet(TEST_COLS,[16,12,11,11,16,11,10,9,9,8,40],tr,"rId1");
