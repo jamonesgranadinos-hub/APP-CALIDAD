@@ -147,6 +147,24 @@ table.t td.num{text-align:right;font-variant-numeric:tabular-nums}
 .inc .im{color:var(--muted);font-size:17px}
 .inc .in3{margin-top:6px;font-size:19px}
 .thumb{width:96px;height:96px;object-fit:cover;border-radius:12px;background:var(--line)}
+.tallas{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.tallas button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-height:86px;padding:10px 14px;border-radius:14px;border:2px solid var(--line);background:#fff;cursor:pointer;text-align:left}
+.tallas button b{font-size:26px}
+.tallas button span{font-size:15px;color:var(--muted)}
+.tallas button.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.tallas button.on span{color:#f3d9dc}
+.dest{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:6px}
+.dest button{min-height:62px;border-radius:14px;border:2px solid var(--line);background:#fff;font-size:19px;font-weight:700;cursor:pointer;padding:6px 10px}
+.dest button.on{background:var(--ok);border-color:var(--ok);color:#fff}
+.tgrid{display:grid;grid-template-columns:70px 1fr 1fr;gap:10px;align-items:center}
+.tgrid .tl{font-size:26px;font-weight:700;text-align:center}
+.tgrid .th{font-size:15px;color:var(--muted);font-weight:600}
+.tgrid input.in{min-height:56px;font-size:24px;text-align:center}
+.aviso{display:flex;gap:12px;align-items:center;width:100%;text-align:left;cursor:pointer;border-radius:14px;padding:12px 16px;border:2px solid var(--warn);background:var(--warn-l);margin-bottom:10px;font-size:19px}
+.aviso.tarde{border-color:var(--bad);background:var(--bad-l)}
+.aviso b{font-size:20px}
+.hist{border-left:4px solid var(--line);padding:6px 0 6px 14px;margin-bottom:10px;cursor:pointer}
+.hist b{font-size:19px}
 .empty{text-align:center;padding:40px 20px;color:var(--muted)}
 .ferr{color:var(--bad);font-size:17px;margin-top:4px}
 .search{margin-bottom:14px}
@@ -170,7 +188,7 @@ const LOTES_COLS = ["Lote interno","Fecha entrada","Proveedor","Lote de origen",
 const TEST_COLS = ["Lote interno","Fecha","Nº testigo","Nº pieza","Tipo","Peso (kg)","Tª (ºC)","pH","Grasa","ETG","Observaciones"];
 const YN = [["prodConformes","¿Revisados conformes los productos?"],["docRevisada","¿Se ha revisado toda la documentación?"],["cumpleEspec","¿Documentación y proveedor cumplen las especificaciones?"],["aptoExport","¿Apto para exportación?"]];
 const LSKEY = "appcalidad.v1";
-const APP_VERSION = "3.1 · 31/10/2026";
+const APP_VERSION = "3.2 · 31/10/2026";
 const SINO = ["Productos revisados conformes","Documentación revisada","Cumple especificaciones","Apto exportación"];
 const TABLAS = {
   Lotes:{ cab:[...LOTES_COLS,"ID app"], k:"ID app", ocultas:["ID app"], orden:[["Fecha entrada",1]],
@@ -180,6 +198,18 @@ const TABLAS = {
   Temperaturas:{ cab:["Fecha","Sala","Tª (ºC)","HR (%)","Horas funcionamiento","Estado","Incidencia","Hora registro","ID app","Orden"], k:"ID app", ocultas:["ID app","Orden"], orden:[["Fecha",1],["Orden",1]],
     fmt:{"Fecha":"dd/mm/yyyy","Sala":"@","Tª (ºC)":"0.0","HR (%)":"0.0","Horas funcionamiento":"0.0","Estado":"@","Incidencia":"@","Hora registro":"@"} }
 };
+TABLAS.Tallas={ cab:["Lote interno","Talla","Nº piezas","Días de sal","Entrada en sal","Salida de sal prevista","Ubicación actual","Desde","ID app","ID lote"], k:"ID app", ocultas:["ID app","ID lote"],
+  orden:[["Lote interno",1],["Orden talla",1]], fmt:{"Lote interno":"@","Talla":"@","Nº piezas":"0","Días de sal":"0","Entrada en sal":"dd/mm/yyyy","Salida de sal prevista":"dd/mm/yyyy","Ubicación actual":"@","Desde":"dd/mm/yyyy"} };
+TABLAS.Tallas.cab.push("Orden talla"); TABLAS.Tallas.ocultas.push("Orden talla");
+TABLAS.Movimientos={ cab:["Fecha","Lote interno","Talla","Nº piezas","Desde","Hacia","Hora registro","ID app","ID mov","ID lote","Código hacia","TS"], k:"ID app",
+  ocultas:["ID app","ID mov","ID lote","Código hacia","TS"], orden:[["Fecha",1],["TS",1],["Lote interno",1]],
+  fmt:{"Fecha":"dd/mm/yyyy","Lote interno":"@","Talla":"@","Nº piezas":"0","Desde":"@","Hacia":"@","Hora registro":"@","Código hacia":"@"} };
+function tallasFilas(l){ const u=ubicaciones(l); return tallasDe(l).map(t=>({"Lote interno":l.loteInterno,"Talla":t,"Nº piezas":l.tallas[t].n,"Días de sal":l.tallas[t].diasSal,
+  "Entrada en sal":dmy(entradaSal(l,t)),"Salida de sal prevista":dmy(salidaSal(l,t,u[t])),"Ubicación actual":u[t]&&SALA[u[t].dest]?SALA[u[t].dest].n:"","Desde":u[t]?dmy(u[t].fecha):"",
+  "ID app":l.id+"_"+t,"ID lote":l.id,"Orden talla":TALLAS.indexOf(t)+1})); }
+function movFilas(l){ const r=[]; (l.movs||[]).forEach(m=>m.tallas.forEach(t=>r.push({"Fecha":dmy(m.fecha),"Lote interno":l.loteInterno,"Talla":t,"Nº piezas":m.piezas&&m.piezas[t]!=null?m.piezas[t]:(l.tallas[t]?l.tallas[t].n:""),
+  "Desde":m.desde&&m.desde[t]&&SALA[m.desde[t]]?SALA[m.desde[t]].n:"","Hacia":SALA[m.destino]?SALA[m.destino].n:m.destino,"Hora registro":m.ts?new Date(m.ts).toTimeString().slice(0,5):"",
+  "ID app":m.mid+"_"+t,"ID mov":m.mid,"ID lote":l.id,"Código hacia":m.destino,"TS":m.ts||0}))); return r; }
 TABLAS.Incidencias={ cab:["Fecha","Hora","Sala","Tipo","Descripción","Foto","Origen","ID app","Orden"], k:"ID app", ocultas:["ID app","Orden"], orden:[["Fecha",1],["Hora",1]],
   fmt:{"Fecha":"dd/mm/yyyy","Hora":"@","Sala":"@","Tipo":"@","Descripción":"@","Foto":"@","Origen":"@"} };
 const dmy = f => f ? f.split("-").reverse().join("/") : "";
@@ -198,6 +228,20 @@ const SALAS = [
   ["EXP","Sala de expedición","Expedición","Otras salas"],["C3","Cámara de grasas (C3)","Grasas (C3)","Otras salas"]
 ].map((a,i)=>({c:a[0],n:a[1],s:a[2],g:a[3],o:i+1,horas:a[0].startsWith("PS")}));
 const SALA = Object.fromEntries(SALAS.map(x=>[x.c,x]));
+const TALLAS = ["C","P","M","G","E","S","S1","S2","S3","S4"];
+const TALLA_N = {C:"Chico",P:"Pequeño",M:"Mediano",G:"Grande",E:"Exagerado",S:"Super",S1:"Super 1",S2:"Super 2",S3:"Super 3",S4:"Super 4"};
+const DESTINOS = SALAS.filter(x=>x.c!=="C3");
+const tallasDe = l => TALLAS.filter(t=>l.tallas&&l.tallas[t]&&l.tallas[t].n>0);
+function movsOrden(l){ return (l.movs||[]).slice().sort((a,b)=>a.fecha.localeCompare(b.fecha)||(a.ts||0)-(b.ts||0)); }
+function ubicaciones(l,hasta){ const r={}; movsOrden(l).forEach(m=>{ if(hasta&&m.fecha>hasta) return; m.tallas.forEach(t=>{ r[t]={dest:m.destino,fecha:m.fecha}; }); }); return r; }
+const salaCorta = c => SALA[c]?SALA[c].s:(c||"—");
+function salidaSal(l,t,u){ const d=l.tallas&&l.tallas[t]&&l.tallas[t].diasSal; return (u&&u.dest.startsWith("SAL")&&d) ? addDays(u.fecha,d) : ""; }
+function entradaSal(l,t){ let f=""; movsOrden(l).forEach(m=>{ if(m.tallas.includes(t)&&m.destino.startsWith("SAL")) f=m.fecha; }); return f; }
+function avisosSal(){
+  const lim=addDays(today(),1), g={};
+  lotesVivos().forEach(l=>{ const u=ubicaciones(l); tallasDe(l).forEach(t=>{ const f=salidaSal(l,t,u[t]); if(f&&f<=lim){ const k=l.id+"|"+f+"|"+u[t].dest; (g[k]=g[k]||{l,f,sala:u[t].dest,tallas:[]}).tallas.push(t); } }); });
+  return Object.values(g).sort((a,b)=>a.f.localeCompare(b.f));
+}
 const TIPOS_INC = ["Avería de cámara","Plagas o ácaros","Defecto en pieza","Limpieza","Temperatura fuera de rango","Otra"];
 
 /* ============ Estado y almacenamiento local ============ */
@@ -256,7 +300,7 @@ function ask(msg, yesTxt="Sí"){ return new Promise(res=>{ $("#mtext").textConte
 /* ============ Navegación ============ */
 let view = {name:"home"};
 function go(v){ view = v; if(recargar && !isForm()){ location.reload(); return; } render(); window.scrollTo(0,0); }
-const isForm = () => ["loteForm","testForm","lectForm","incForm"].includes(view.name);
+const isForm = () => ["loteForm","testForm","lectForm","incForm","tallasForm","mover"].includes(view.name);
 
 function render(){
   const app = $("#app");
@@ -269,6 +313,9 @@ function render(){
   else if(view.name==="temp") app.innerHTML = vTemp();
   else if(view.name==="lectForm") app.innerHTML = vLectForm();
   else if(view.name==="inc") app.innerHTML = vInc();
+  else if(view.name==="tallasForm") app.innerHTML = vTallasForm();
+  else if(view.name==="mover") app.innerHTML = vMover();
+  else if(view.name==="ubic") app.innerHTML = vUbic();
   else if(view.name==="incForm") app.innerHTML = vIncForm();
   bindView();
   updateSync();
@@ -276,12 +323,17 @@ function render(){
 
 /* ---------- Inicio ---------- */
 function vHome(){
-  return `<h1>¿Qué vas a registrar?</h1>
+  const av=avisosSal();
+  return `${av.length?`<h2 style="margin-top:0">🧂 Salidas de sal</h2>${av.map(a=>{ const tarde=a.f<today(), hoy=a.f===today();
+    return `<button class="aviso ${tarde?"tarde":""}" data-avlote="${a.l.id}"><div style="flex:1"><b>Lote ${esc(a.l.loteInterno)}</b> · ${esc(salaCorta(a.sala))}<br>Talla${a.tallas.length>1?"s":""} ${a.tallas.join(", ")}</div>
+      <span class="tag ${tarde?"bad":"warn"}" style="font-size:17px">${tarde?"Tocaba el "+fmtD(a.f):(hoy?"Sale hoy":"Sale mañana")}</span></button>`; }).join("")}`:""}
+  <h1>¿Qué vas a registrar?</h1>
   <div class="tiles">
     <button class="tile on" data-go="entrada"><span class="ic">🍖</span><span class="tt">Entrada de jamón</span><span class="ds">Lotes que entran al secadero y sus testigos</span></button>
     ${(()=>{ const hoy=lectDia(today()), n=hoy.length, inc=hoy.filter(l=>l.estado==="INCIDENCIA").length;
       return `<button class="tile on" data-go="temp"><span class="ic">🌡️</span><span class="tt">Temperaturas</span><span class="ds">Temperatura y humedad de cada sala</span>
       <span class="tag ${n===SALAS.length?"ok":"warn"}">Hoy: ${n} de ${SALAS.length} salas</span>${inc?`<span class="tag bad">${inc} incidencia${inc>1?"s":""} hoy</span>`:""}</button>`; })()}
+    <button class="tile on" data-go="ubic"><span class="ic">📍</span><span class="tt">Ubicación de lotes</span><span class="ds">Qué lotes y tallas hay en cada sala</span></button>
     ${(()=>{ const n=incDia(today()).length; return `<button class="tile on" data-go="inc"><span class="ic">⚠️</span><span class="tt">Incidencias</span><span class="ds">Avisos por sala con foto y nota</span>
       <span class="tag ${n?"bad":"ok"}">${n?`Hoy: ${n} incidencia${n>1?"s":""}`:"Hoy: ninguna"}</span></button>`; })()}
   </div>
@@ -435,6 +487,7 @@ function vEntrada(){
     return `<button class="card lote" data-lote="${l.id}">
       <div><div class="li">${esc(l.loteInterno)}${state.pend[l.id]?'<span class="dot" title="Pendiente de enviar"></span>':""}</div>
       <div class="meta">${fmtD(l.fechaEntrada)} · ${esc(l.proveedor||"Sin proveedor")}</div>
+      ${(()=>{ const u=ubicaciones(l), sl=[...new Set(tallasDe(l).map(t=>u[t]?u[t].dest:""))]; return sl.length&&sl.some(Boolean)?`<div class="meta">📍 ${sl.map(c=>c?esc(salaCorta(c)):"Sin ubicar").join(" · ")}</div>`:""; })()}
       <div style="margin-top:6px">${val? (l.aptoExport==="SI"?'<span class="tag ok">Apto exportación</span>':'<span class="tag bad">No apto exportación</span>') : '<span class="tag warn">Valoración pendiente</span>'}</div></div>
       <div class="n"><b>${nt}</b><span>testigos</span></div></button>`; }).join("")
     : `<div class="empty">${all.length?"Ningún lote coincide con la búsqueda.":"Todavía no hay lotes. Pulsa «Nuevo lote» para empezar."}</div>`}
@@ -469,7 +522,9 @@ function vLote(){
     <div><span>DAC</span><b>${esc(l.dac)||"—"}</b></div>
     <div><span>Nº piezas · Peso total</span><b>${l.nPiezas!=null?fmtN(l.nPiezas,0):"—"} · ${l.pesoTotal!=null?fmtN(l.pesoTotal,2)+" kg":"—"}</b></div>
   </div>
-  <div style="margin-top:18px"><button class="btn pri big" id="addTest">＋ Añadir testigo nº ${nextN(l)}</button></div>
+  ${vTallasLote(l)}
+  <h2>Testigos</h2>
+  <div><button class="btn pri big" id="addTest">＋ Añadir testigo nº ${nextN(l)}</button></div>
   <div class="stats">
     <div class="stat"><b>${s.n}</b><span>Testigos</span></div>
     <div class="stat"><b>${s.peso!=null?fmtN(s.peso,2):"—"}</b><span>Peso medio (kg)</span></div>
@@ -487,6 +542,70 @@ function vLote(){
     ${l.hallazgos?`<div class="yn"><div class="q">Hallazgos</div><div>${esc(l.hallazgos)}</div></div>`:""}
     <button class="btn" id="editVal" style="margin-top:12px;width:100%">✎ Completar valoración</button>
   </div>`;
+}
+function vTallasLote(l){
+  const ts=tallasDe(l), u=ubicaciones(l), tot=ts.reduce((a,t)=>a+l.tallas[t].n,0);
+  if(!ts.length) return `<h2>Tallas y ubicación</h2><div class="card"><p style="margin-top:0">Al terminar la entrada, apunta cuántas piezas hay de cada talla. Después podrás registrar la entrada en sal y los movimientos entre salas.</p>
+    <button class="btn pri big" id="editTallas">Apuntar piezas por talla</button></div>`;
+  const hist=movsOrden(l).reverse();
+  return `<h2>Tallas y ubicación</h2>
+  <div class="tw"><table class="t"><thead><tr><th>Talla</th><th>Piezas</th><th>Días sal</th><th>Está en</th><th>Desde</th><th>Sale de sal</th></tr></thead><tbody>
+  ${ts.map(t=>{ const x=l.tallas[t], w=u[t], f=salidaSal(l,t,w); const tarde=f&&f<today(), hoy=f===today();
+    return `<tr><td><b>${t}</b> <span class="muted" style="font-size:15px">${TALLA_N[t]}</span></td><td class="num">${fmtN(x.n,0)}</td><td class="num">${x.diasSal!=null?x.diasSal:"—"}</td>
+      <td>${w?`<b>${esc(salaCorta(w.dest))}</b>`:'<span class="tag warn">Sin ubicar</span>'}</td><td>${w?fmtD(w.fecha):""}</td>
+      <td>${f?`<span class="tag ${tarde?"bad":(hoy?"warn":"")}">${fmtD(f)}</span>`:""}</td></tr>`; }).join("")}
+  <tr><td><b>Total</b></td><td class="num"><b>${fmtN(tot,0)}</b></td><td colspan="4">${l.nPiezas!=null&&l.nPiezas!==tot?`<span class="tag warn">El lote tiene ${fmtN(l.nPiezas,0)} piezas</span>`:""}</td></tr>
+  </tbody></table></div>
+  <div class="row" style="margin-top:12px"><button class="btn pri big grow" id="moverPiezas" style="width:auto">⇄ Mover piezas</button><button class="btn" id="editTallas">✎ Tallas</button></div>
+  ${hist.length?`<h2>Historial de movimientos</h2><div class="card">${hist.map(m=>`<div class="hist" data-mov="${m.mid}"><b>${fmtD(m.fecha)}</b> · ${m.tallas.length===ts.length&&ts.every(t=>m.tallas.includes(t))?"Todo el lote":"Talla"+(m.tallas.length>1?"s ":" ")+m.tallas.join(", ")} → <b>${esc(salaCorta(m.destino))}</b>
+    <div class="muted" style="font-size:16px">${m.tallas.map(t=>`${t}: ${m.desde&&m.desde[t]?esc(salaCorta(m.desde[t])):"—"} → ${esc(salaCorta(m.destino))}`).join(" · ")}</div></div>`).join("")}
+    <p class="muted" style="font-size:15px;margin-bottom:0">Toca un movimiento para borrarlo si se apuntó por error.</p></div>`:""}`;
+}
+function vTallasForm(){
+  const l=state.lotes[view.id], d=draft;
+  return `<button class="back" id="cancel">← Volver al lote</button>
+  <h1 style="margin-bottom:4px">Piezas por talla</h1><p class="muted" style="margin-top:0">Lote ${esc(l.loteInterno)}${l.nPiezas!=null?` · ${fmtN(l.nPiezas,0)} piezas en total`:""}</p>
+  <form id="f" autocomplete="off" novalidate><div class="card">
+    <div class="tgrid"><div class="th" style="text-align:center">Talla</div><div class="th">Nº piezas</div><div class="th">Días de sal</div>
+    ${TALLAS.map(t=>`<div class="tl">${t}<div class="th">${TALLA_N[t]}</div></div>
+      <input class="in" data-n="${t}" inputmode="numeric" value="${d[t]&&d[t].n?d[t].n:""}" enterkeyhint="next">
+      <input class="in" data-d="${t}" inputmode="numeric" value="${d[t]&&d[t].diasSal!=null?d[t].diasSal:""}" enterkeyhint="next">`).join("")}</div>
+    <p id="totT" style="font-size:20px;font-weight:700;margin-bottom:0"></p>
+    <p class="muted" style="font-size:16px">Los días de sal se pueden dejar en blanco y apuntarlos al meter las piezas en sal.</p>
+  </div></form>
+  <div class="bar"><div class="in2"><button class="btn pri big" id="tSave">Guardar tallas</button></div></div>`;
+}
+function vMover(){
+  const l=state.lotes[view.id], d=draft, ts=tallasDe(l), u=ubicaciones(l), grupos=[...new Set(DESTINOS.map(x=>x.g))];
+  const todas=ts.length&&ts.every(t=>d.tallas.includes(t)), aSal=d.destino&&d.destino.startsWith("SAL");
+  return `<button class="back" id="cancel">← Volver al lote</button>
+  <h1 style="margin-bottom:4px">Mover piezas</h1><p class="muted" style="margin-top:0">Lote ${esc(l.loteInterno)}</p>
+  <form id="f" autocomplete="off" novalidate><div class="card">
+    <div class="f"><label class="l" for="mfecha">Fecha del movimiento</label><input class="in" type="date" id="mfecha" value="${esc(d.fecha)}"></div>
+    <label class="l">¿Qué se mueve? <span class="req">*</span></label>
+    <button type="button" class="btn ${todas?"pri":""}" id="mTodo" style="width:100%;margin-bottom:10px">${todas?"✓ Todo el lote":"Todo el lote"}</button>
+    <div class="tallas" id="mTallas">${ts.map(t=>`<button type="button" data-t="${t}" class="${d.tallas.includes(t)?"on":""}"><b>${t}</b><span>${fmtN(l.tallas[t].n,0)} piezas</span><span>${u[t]?"En "+esc(salaCorta(u[t].dest)):"Sin ubicar"}</span></button>`).join("")}</div>
+    <div class="ferr" id="e_mt"></div>
+    <label class="l" style="margin-top:18px">¿A dónde van? <span class="req">*</span></label>
+    ${grupos.map(g=>`<div class="muted" style="font-weight:700;margin:10px 0 6px">${g}</div><div class="dest">${DESTINOS.filter(x=>x.g===g).map(x=>`<button type="button" data-d="${x.c}" class="${d.destino===x.c?"on":""}">${esc(x.s)}</button>`).join("")}</div>`).join("")}
+    <div class="ferr" id="e_md"></div>
+    ${aSal&&d.tallas.length?`<div style="margin-top:18px"><label class="l">Días de sal de cada talla</label><div class="tgrid" style="grid-template-columns:70px 1fr">
+      ${TALLAS.filter(t=>d.tallas.includes(t)).map(t=>`<div class="tl">${t}</div><input class="in" data-ds="${t}" inputmode="numeric" placeholder="días" value="${d.dias[t]!=null?d.dias[t]:""}">`).join("")}</div>
+      <p class="muted" style="font-size:16px">Con esto la app avisará en la pantalla de inicio el día que le toca salir de sal a cada talla.</p></div>`:""}
+  </div></form>
+  <div class="bar"><div class="in2"><button class="btn pri big" id="mSave">Guardar movimiento</button></div></div>`;
+}
+function vUbic(){
+  const mapa={};
+  lotesVivos().forEach(l=>{ const u=ubicaciones(l); tallasDe(l).forEach(t=>{ const c=u[t]?u[t].dest:"_"; ((mapa[c]=mapa[c]||{})[l.id]=mapa[c][l.id]||{l,ts:[]}).ts.push(t); }); });
+  const salas=SALAS.filter(x=>mapa[x.c]).map(x=>x.c).concat(mapa._?["_"]:[]);
+  return `<button class="back" data-go="home">← Inicio</button>
+  <h1>Ubicación de lotes</h1>
+  ${salas.length?salas.map(c=>{ const ls=Object.values(mapa[c]); const tot=ls.reduce((a,x)=>a+x.ts.reduce((b,t)=>b+x.l.tallas[t].n,0),0);
+    return `<h2>${c==="_"?"Sin ubicar todavía":esc(SALA[c].n)} <span class="muted" style="font-size:18px;font-weight:500">· ${fmtN(tot,0)} piezas</span></h2><div class="list">
+    ${ls.map(x=>`<button class="card lote" data-lote="${x.l.id}"><div><div class="li">Lote ${esc(x.l.loteInterno)}</div>
+      <div class="meta">${x.ts.map(t=>`${t} (${fmtN(x.l.tallas[t].n,0)})`).join(" · ")}</div></div></button>`).join("")}</div>`; }).join("")
+  : `<div class="empty">Todavía no hay lotes con tallas registradas. Entra en un lote y pulsa «Apuntar piezas por talla».</div>`}`;
 }
 function nextN(l){ return (l.testigos||[]).reduce((m,t)=>Math.max(m,t.n),0)+1; }
 
@@ -574,6 +693,12 @@ function bindView(){
     const edit=()=>{ draft=JSON.parse(JSON.stringify(l)); go({name:"loteForm",id:l.id}); };
     $("#editLote").onclick=edit; $("#editVal").onclick=()=>{ edit(); setTimeout(()=>{ const h=document.querySelectorAll("h2")[0]; h&&h.scrollIntoView(); },30); };
     $("#addTest").onclick=()=>openTest(l);
+    const et=$("#editTallas"); if(et) et.onclick=()=>{ draft=JSON.parse(JSON.stringify(l.tallas||{})); go({name:"tallasForm",id:l.id}); };
+    const mp=$("#moverPiezas"); if(mp) mp.onclick=()=>{ draft={fecha:today(),tallas:[],destino:"",dias:{}}; go({name:"mover",id:l.id}); };
+    app.querySelectorAll("[data-mov]").forEach(h=>h.onclick=async()=>{ const m=l.movs.find(x=>x.mid===h.dataset.mov); if(!m) return;
+      if(await ask(`¿Borrar el movimiento del ${fmtD(m.fecha)} (${m.tallas.join(", ")} → ${salaCorta(m.destino)})?`,"Borrar")){
+        const c=JSON.parse(JSON.stringify(l)); c.movs=c.movs.filter(x=>x.mid!==m.mid); c.delOps=(c.delOps||[]).concat([{t:"Movimientos",col:"ID mov",val:m.mid}]);
+        commit(c); toast("Movimiento borrado"); render(); } });
     app.querySelectorAll("[data-test]").forEach(r=>r.onclick=()=>{ const t=l.testigos.find(x=>x.n==r.dataset.test); draft=Object.assign({},t); go({name:"testForm",id:l.id,n:t.n}); });
   }
   if(view.name==="loteForm"||view.name==="testForm"){
@@ -612,6 +737,50 @@ function bindView(){
     $("#lSave").onclick=()=>saveLect(false); $("#lNext").onclick=()=>saveLect(true);
     const del=$("#delLect"); if(del) del.onclick=async()=>{ if(await ask("¿Borrar la lectura de "+SALA[view.sala].s+" del "+fmtD(draft.fecha)+"?","Borrar")){ const l=Object.assign({},state.lect[draft.id],{deleted:true}); commitLect(l); toast("Lectura borrada"); go({name:"temp",fecha:draft.fecha}); } };
     setTimeout(()=>{ const el=$("#ltemp"); if(el&&!el.value&&document.activeElement===document.body) el.focus(); },50);
+  }
+  if(view.name==="home") app.querySelectorAll("[data-avlote]").forEach(b=>b.onclick=()=>go({name:"lote",id:b.dataset.avlote}));
+  if(view.name==="ubic") app.querySelectorAll("[data-lote]").forEach(b=>b.onclick=()=>go({name:"lote",id:b.dataset.lote}));
+  if(view.name==="tallasForm"){
+    $("#f").onsubmit=e=>e.preventDefault();
+    const ins=[...app.querySelectorAll("input.in")];
+    ins.forEach((el,i)=>el.addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); const nx=ins[i+2]||ins[i+1]; nx?nx.focus():el.blur(); } }));
+    const l=state.lotes[view.id];
+    const tot=()=>{ let s=0; app.querySelectorAll("[data-n]").forEach(i=>{ const v=parseNum(i.value); if(v>0) s+=v; });
+      $("#totT").innerHTML=`Total: ${fmtN(s,0)} piezas`+(l.nPiezas!=null&&s&&s!==l.nPiezas?` <span class="tag warn">El lote tiene ${fmtN(l.nPiezas,0)}</span>`:""); };
+    app.querySelectorAll("[data-n]").forEach(i=>i.addEventListener("input",tot)); tot();
+    $("#cancel").onclick=()=>go({name:"lote",id:view.id});
+    $("#tSave").onclick=()=>{
+      const c=JSON.parse(JSON.stringify(l)), nt={}; let bad=false;
+      TALLAS.forEach(t=>{ const iN=app.querySelector(`[data-n="${t}"]`), iD=app.querySelector(`[data-d="${t}"]`); const n=parseNum(iN.value), dd=parseNum(iD.value);
+        [iN,iD].forEach(x=>x.classList.remove("err"));
+        if(Number.isNaN(n)||(n!=null&&(n<0||!Number.isInteger(n)))){ iN.classList.add("err"); bad=true; }
+        if(Number.isNaN(dd)||(dd!=null&&(dd<0||!Number.isInteger(dd)))){ iD.classList.add("err"); bad=true; }
+        if(n>0) nt[t]={n,diasSal:dd}; });
+      if(bad){ toast("Escribe números enteros"); return; }
+      if(!Object.keys(nt).length){ toast("Escribe las piezas de al menos una talla"); return; }
+      const quitadas=tallasDe(c).filter(t=>!nt[t]);
+      c.tallas=nt; c.delOps=(c.delOps||[]).concat(quitadas.map(t=>({t:"Tallas",col:"ID app",val:c.id+"_"+t})));
+      commit(c); toast("Tallas guardadas"); go({name:"lote",id:c.id}); };
+  }
+  if(view.name==="mover"){
+    $("#f").onsubmit=e=>e.preventDefault();
+    const l=state.lotes[view.id], ts=tallasDe(l);
+    const keepDias=()=>app.querySelectorAll("[data-ds]").forEach(i=>{ const v=parseNum(i.value); draft.dias[i.dataset.ds]=Number.isNaN(v)?null:v; });
+    const keep=()=>{ draft.fecha=$("#mfecha").value||today(); keepDias(); };
+    const sel=(t)=>{ if(!draft.dias.hasOwnProperty(t)) draft.dias[t]=l.tallas[t].diasSal; };
+    $("#cancel").onclick=()=>go({name:"lote",id:view.id});
+    $("#mTodo").onclick=()=>{ keep(); const todas=ts.every(t=>draft.tallas.includes(t)); draft.tallas=todas?[]:ts.slice(); draft.tallas.forEach(sel); render(); };
+    app.querySelectorAll("#mTallas button").forEach(b=>b.onclick=()=>{ keep(); const t=b.dataset.t; draft.tallas=draft.tallas.includes(t)?draft.tallas.filter(x=>x!==t):draft.tallas.concat([t]); sel(t); render(); });
+    app.querySelectorAll(".dest button").forEach(b=>b.onclick=()=>{ keep(); draft.destino=b.dataset.d; render(); });
+    $("#mSave").onclick=()=>{ keep();
+      let bad=false; $("#e_mt").textContent=""; $("#e_md").textContent="";
+      if(!draft.tallas.length){ $("#e_mt").textContent="Elige «Todo el lote» o las tallas que se mueven"; bad=true; }
+      if(!draft.destino){ $("#e_md").textContent="Elige la sala de destino"; bad=true; }
+      if(bad){ toast("Revisa los campos marcados"); return; }
+      const c=JSON.parse(JSON.stringify(l)), u=ubicaciones(c,draft.fecha), tl=TALLAS.filter(t=>draft.tallas.includes(t));
+      const m={mid:uid(),fecha:draft.fecha,ts:Date.now(),destino:draft.destino,tallas:tl,desde:{},piezas:{}};
+      tl.forEach(t=>{ m.desde[t]=u[t]?u[t].dest:""; m.piezas[t]=c.tallas[t].n; if(draft.destino.startsWith("SAL")&&draft.dias[t]!=null) c.tallas[t].diasSal=draft.dias[t]; });
+      c.movs=(c.movs||[]).concat([m]); commit(c); toast(`${tl.length===ts.length?"Lote":"Talla"+(tl.length>1?"s ":" ")+tl.join(", ")} → ${salaCorta(draft.destino)}`); go({name:"lote",id:c.id}); };
   }
   if(view.name==="inc"){
     const f=view.fecha||today();
@@ -735,6 +904,15 @@ function desdeServidor(datos){
   objetos(datos.Testigos).forEach(r=>{ const l=lotes[sv(r["ID lote app"])], tid=sv(r["ID testigo app"]); if(!l||!tid) return;
     l.testigos.push({tid,n:nv(r["Nº testigo"]),fecha:sv(r["Fecha"]),pieza:sv(r["Nº pieza"]),tipo:sv(r["Tipo"]),peso:nv(r["Peso (kg)"]),temp:nv(r["Tª (ºC)"]),ph:nv(r["pH"]),
       grasa:nv(r["Grasa"]),etg:sv(r["ETG"]),obs:sv(r["Observaciones"])}); });
+  Object.values(lotes).forEach(l=>{ l.tallas={}; l.movs=[]; });
+  objetos(datos.Tallas).forEach(r=>{ const l=lotes[sv(r["ID lote"])], t=sv(r["Talla"]); if(!l||!TALLAS.includes(t)) return;
+    l.tallas[t]={n:nv(r["Nº piezas"])||0,diasSal:nv(r["Días de sal"])}; });
+  const mv={};
+  objetos(datos.Movimientos).forEach(r=>{ const l=lotes[sv(r["ID lote"])], id=sv(r["ID mov"]), t=sv(r["Talla"]); if(!l||!id) return;
+    const dsd=SALAS.find(x=>x.n===sv(r["Desde"]));
+    const m=mv[id]||(mv[id]={mid:id,fecha:sv(r["Fecha"]),ts:nv(r["TS"])||0,destino:sv(r["Código hacia"]),tallas:[],desde:{},piezas:{},l});
+    m.tallas.push(t); m.desde[t]=dsd?dsd.c:""; m.piezas[t]=nv(r["Nº piezas"]); });
+  Object.values(mv).forEach(m=>{ const l=m.l; delete m.l; m.tallas=TALLAS.filter(t=>m.tallas.includes(t)); l.movs.push(m); });
   const lects=objetos(datos.Temperaturas).map(r=>{ const id=sv(r["ID app"]); return id&&{id,fecha:sv(r["Fecha"]),sala:id.split("_")[1]||"",salaNombre:sv(r["Sala"]),temp:nv(r["Tª (ºC)"]),
       hr:nv(r["HR (%)"]),horas:nv(r["Horas funcionamiento"]),estado:sv(r["Estado"]),incidencia:sv(r["Incidencia"]),hora:sv(r["Hora registro"]),orden:nv(r["Orden"])}; }).filter(Boolean);
   const incs=objetos(datos.Incidencias).filter(r=>sv(r["Origen"])!=="Ronda de temperaturas").map(r=>{ const id=sv(r["ID app"]); if(!id) return null;
@@ -752,11 +930,15 @@ async function sync(manual){
     Object.keys(state.pendT).forEach(id=>{ if(!state.lect[id]) delete state.pendT[id]; });
     const put=[], upd=[], del=[], sentL={}, sentT={};
     for(const id of Object.keys(state.pend)){ const l=state.lotes[id]; sentL[id]=l.updatedAt;
-      if(l.deleted){ del.push({t:"Lotes",col:"ID app",val:id},{t:"Testigos",col:"ID lote app",val:id}); continue; }
+      if(l.deleted){ del.push({t:"Lotes",col:"ID app",val:id},{t:"Testigos",col:"ID lote app",val:id},{t:"Tallas",col:"ID lote",val:id},{t:"Movimientos",col:"ID lote",val:id}); continue; }
       put.push({t:"Lotes",fila:loteFila(l)});
       (l.testigos||[]).forEach(t=>put.push({t:"Testigos",fila:testFila(l,t)}));
       upd.push({t:"Testigos",col:"ID lote app",val:id,set:{"Lote interno":l.loteInterno}});
       (l.delTids||[]).forEach(tid=>del.push({t:"Testigos",col:"ID testigo app",val:tid}));
+      tallasFilas(l).forEach(f=>put.push({t:"Tallas",fila:f}));
+      movFilas(l).forEach(f=>put.push({t:"Movimientos",fila:f}));
+      upd.push({t:"Tallas",col:"ID lote",val:id,set:{"Lote interno":l.loteInterno}},{t:"Movimientos",col:"ID lote",val:id,set:{"Lote interno":l.loteInterno}});
+      (l.delOps||[]).forEach(o=>del.push(o));
     }
     for(const id of Object.keys(state.pendT)){ const x=state.lect[id]; sentT[id]=x.updatedAt;
       if(x.deleted) del.push({t:"Temperaturas",col:"ID app",val:id}); else put.push({t:"Temperaturas",fila:lectFila(x)});
@@ -772,11 +954,11 @@ async function sync(manual){
         if(data){ archivos.push({id,nombre:"INC_"+x.fecha+"_"+x.sala+"_"+id+".jpg",tipo:"image/jpeg",datos:String(data).split(",")[1]}); foto="archivo:"+id; } }
       put.push({t:"Incidencias",fila:incFila(x,foto)}); }
     const res = await call("POST",{action:"sync",tablas:TABLAS,put,upd,del,archivos,
-      leer:[{t:"Lotes"},{t:"Testigos"},{t:"Temperaturas",colFecha:"Fecha",dias:60},{t:"Incidencias",colFecha:"Fecha",dias:60}]});
+      leer:[{t:"Lotes"},{t:"Testigos"},{t:"Tallas"},{t:"Movimientos"},{t:"Temperaturas",colFecha:"Fecha",dias:60},{t:"Incidencias",colFecha:"Fecha",dias:60}]});
     if(!(res.v>=3) || (archivos.length && !(res.v>=4))) throw new Error("version");
     for(const a of archivos){ const u=res.archivos&&res.archivos[a.id]; if(u && state.inc[a.id]){ state.inc[a.id].fotoUrl=u; await fotosDB.del(a.id); } }
     for(const id in sentI) if(state.inc[id] && state.inc[id].updatedAt===sentI[id]) delete state.pendI[id];
-    for(const id in sentL) if(state.lotes[id] && state.lotes[id].updatedAt===sentL[id]){ delete state.pend[id]; delete state.lotes[id].delTids; }
+    for(const id in sentL) if(state.lotes[id] && state.lotes[id].updatedAt===sentL[id]){ delete state.pend[id]; delete state.lotes[id].delTids; delete state.lotes[id].delOps; }
     for(const id in sentT) if(state.lect[id] && state.lect[id].updatedAt===sentT[id]) delete state.pendT[id];
     const d=desdeServidor(res.datos||{});
     mergeServer(d.lotes, d.lects, d.incs); state.lastSync=Date.now(); net="ok"; persist();
