@@ -32,7 +32,7 @@ header.top .s{font-size:16px;opacity:.85}
 #gear{background:rgba(255,255,255,.15);border:0;color:#fff;font-size:26px;width:52px;height:52px;border-radius:50%;cursor:pointer}
 textarea.code{font-family:ui-monospace,monospace;font-size:16px;min-height:110px}
 ol.steps{padding-left:24px;margin:8px 0}ol.steps li{margin-bottom:6px}
-main{max-width:980px;margin:0 auto;padding:20px 18px 120px}
+main{max-width:980px;margin:0 auto;padding:20px 18px 40px}
 h1{font-size:32px;margin:6px 0 18px}
 h2{font-size:24px;margin:26px 0 12px}
 .muted{color:var(--muted)}
@@ -72,6 +72,8 @@ label.l{display:block;font-weight:600;font-size:19px;margin-bottom:6px}
 .req{color:var(--bad)}
 input.in,textarea.in,select.in{width:100%;min-height:64px;padding:10px 16px;border-radius:12px;border:2px solid var(--line);background:#fff;font-size:26px}
 textarea.in{min-height:96px;font-size:22px}
+select.in{font-size:20px;font-weight:600}
+@media (max-width:640px){select.in{font-size:16px}.ntest b{font-size:44px}}
 input.in:focus,textarea.in:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-l)}
 input.in.err{border-color:var(--bad);background:var(--bad-l)}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}
@@ -104,7 +106,7 @@ table.t td.num{text-align:right;font-variant-numeric:tabular-nums}
 .kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 18px;font-size:18px}
 .kv div span{display:block;color:var(--muted);font-size:15px}
 .kv div b{font-weight:600}
-.bar{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:2px solid var(--line);padding:12px 18px;z-index:4}
+.bar{position:sticky;bottom:0;margin:22px -18px 0;background:var(--card);border-top:2px solid var(--line);padding:12px 18px calc(12px + env(safe-area-inset-bottom));z-index:4}
 .bar .in2{max-width:980px;margin:0 auto;display:flex;gap:12px}
 .bar .in2 .btn{flex:1}
 #modal{position:fixed;inset:0;background:rgba(42,26,20,.5);display:none;align-items:center;justify-content:center;z-index:20;padding:20px}
@@ -113,6 +115,26 @@ table.t td.num{text-align:right;font-variant-numeric:tabular-nums}
 #modal .box p{font-size:22px;margin:0 0 22px}
 #toast{position:fixed;left:50%;bottom:110px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:14px 24px;border-radius:999px;font-size:20px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;z-index:30;white-space:nowrap}
 #toast.show{opacity:1}
+.salas{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:12px;margin-bottom:8px}
+.sala{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-height:112px;padding:14px 16px;border-radius:16px;border:2px solid var(--line);background:#fff;text-align:left;cursor:pointer}
+.sala .sn{font-weight:700;font-size:21px;line-height:1.15}
+.sala .sv{font-size:19px;font-variant-numeric:tabular-nums}
+.sala .ss{font-size:15px;font-weight:700;margin-top:auto}
+.sala.done{background:var(--ok-l);border-color:var(--ok)} .sala.done .ss{color:var(--ok)}
+.sala.inc{background:var(--bad-l);border-color:var(--bad)} .sala.inc .ss{color:var(--bad)}
+.sala.pend .ss{color:var(--bad)}
+.daynav{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.daynav button{min-width:64px;min-height:64px;border-radius:14px;border:2px solid var(--line);background:#fff;font-size:28px;cursor:pointer}
+.daynav button[disabled]{opacity:.3}
+.daynav .d{flex:1;text-align:center}
+.daynav .d b{display:block;font-size:26px}
+.prog{height:16px;border-radius:999px;background:var(--line);overflow:hidden;margin:6px 0 18px}
+.prog i{display:block;height:100%;background:var(--ok)}
+.estado{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.estado button{min-height:84px;border-radius:16px;border:3px solid var(--line);background:#fff;font-size:23px;font-weight:700;cursor:pointer}
+.estado .ok.on{background:var(--ok);border-color:var(--ok);color:#fff}
+.estado .ko.on{background:var(--bad);border-color:var(--bad);color:#fff}
+.bignum{font-size:34px!important;font-weight:700;text-align:center}
 .empty{text-align:center;padding:40px 20px;color:var(--muted)}
 .ferr{color:var(--bad);font-size:17px;margin-top:4px}
 .search{margin-bottom:14px}
@@ -131,14 +153,39 @@ table.t td.num{text-align:right;font-variant-numeric:tabular-nums}
 "use strict";
 /* ============ Constantes ============ */
 const RESP_DEF = "CECILIO RODRIGUEZ";
-const TIPOS = ["Jamón blanco","Paleta blanca","Jamón ibérico","Paleta ibérica"];
+const TIPOS = ["JAMON SIN PATA FINO", "JAMON SIN PATA SEMIGRASO", "JAMON SIN PATA GRASO", "JAMON SIN PATA DUROC", "JAMON SIN PATA ECOLOGICO", "JAMON SIN PATA CORTE \"V\"", "JAMON CON PATA CORTE \"V\" FINO", "JAMON CON PATA CORTE \"V\" SEMIGRASO", "JAMON CON PATA CORTE \"V\" GRASO", "JAMON CON PATA CORTE \"V\" DUROC", "JAMON CON PATA CORTE \"V\" POLONIA", "JAMON CON PATA CORTE \"V\" DUROC EXTRA", "JAMON CON PATA CORTE \"V\" DUROC EXTRA CAMPO", "JAMON CON PATA CORTE \"V\" ECOLOGICO", "JAMON PIEL Y PATA FINO", "JAMON PIEL Y PATA SEMIGRASO", "JAMON PIEL Y PATA GRASO", "JAMON PIEL Y PATA DUROC", "JAMON PIEL Y PATA DUROC SEMI", "JAMON PIEL Y PATA ECOLOGICO", "PALETA PIEL Y PATA FINA", "PALETA PIEL Y PATA SEMIGRASA", "PALETA PIEL Y PATA GRASA", "PALETA PIEL Y PATA DUROC", "JAMON DE CEBO IBERICO", "JAMON DE BELLOTA IBERICO", "PALETA DE CEBO IBERICA", "PALETA DE BELLOTA IBERICA", "PALETA DE CEBO DE CAMPO IBERICA", "PALETA CON PATA CORTE \"V\" FINA", "PALETA CON PATA CORTE \"V\" SEMIGRASA", "PALETA CON PATA CORTE \"V\" GRASA", "PALETA CON PATA CORTE \"V\" DUROC", "JAMON SPECK SIN PIEL", "JAMON CON PATA CORTE \"V\" NAB DUROC", "LOMO 50% DUROC CON PIEL"];
 const LOTES_COLS = ["Lote interno","Fecha entrada","Proveedor","Lote de origen","Albarán/Factura","DAC","Nº piezas lote","Peso total lote (kg)","Productos revisados conformes","Documentación revisada","Cumple especificaciones","Apto exportación","Destino si no apto","Responsable","Hallazgos"];
 const TEST_COLS = ["Lote interno","Fecha","Nº testigo","Nº pieza","Tipo","Peso (kg)","Tª (ºC)","pH","Grasa","ETG","Observaciones"];
 const YN = [["prodConformes","¿Revisados conformes los productos?"],["docRevisada","¿Se ha revisado toda la documentación?"],["cumpleEspec","¿Documentación y proveedor cumplen las especificaciones?"],["aptoExport","¿Apto para exportación?"]];
 const LSKEY = "appcalidad.v1";
+const APP_VERSION = "3.0 · 31/10/2026";
+const SINO = ["Productos revisados conformes","Documentación revisada","Cumple especificaciones","Apto exportación"];
+const TABLAS = {
+  Lotes:{ cab:[...LOTES_COLS,"ID app"], k:"ID app", ocultas:["ID app"], orden:[["Fecha entrada",1]],
+    fmt:Object.assign(Object.fromEntries(LOTES_COLS.map(c=>[c,"@"])),{"Fecha entrada":"dd/mm/yyyy","Nº piezas lote":"0","Peso total lote (kg)":"#,##0.00"}) },
+  Testigos:{ cab:[...TEST_COLS,"ID testigo app","ID lote app"], k:"ID testigo app", ocultas:["ID testigo app","ID lote app"], orden:[["Fecha",1],["Lote interno",1],["Nº testigo",1]],
+    fmt:{"Lote interno":"@","Fecha":"dd/mm/yyyy","Nº testigo":"0","Nº pieza":"@","Tipo":"@","Peso (kg)":"0.00","Tª (ºC)":"0.0","pH":"0.00","ETG":"@","Observaciones":"@"} },
+  Temperaturas:{ cab:["Fecha","Sala","Tª (ºC)","HR (%)","Horas funcionamiento","Estado","Incidencia","Hora registro","ID app","Orden"], k:"ID app", ocultas:["ID app","Orden"], orden:[["Fecha",1],["Orden",1]],
+    fmt:{"Fecha":"dd/mm/yyyy","Sala":"@","Tª (ºC)":"0.0","HR (%)":"0.0","Horas funcionamiento":"0.0","Estado":"@","Incidencia":"@","Hora registro":"@"} }
+};
+const dmy = f => f ? f.split("-").reverse().join("/") : "";
+const loteFila = l => ({"Lote interno":l.loteInterno,"Fecha entrada":dmy(l.fechaEntrada),"Proveedor":l.proveedor,"Lote de origen":l.loteOrigen,"Albarán/Factura":l.albaran,"DAC":l.dac,
+  "Nº piezas lote":l.nPiezas,"Peso total lote (kg)":l.pesoTotal,"Productos revisados conformes":l.prodConformes,"Documentación revisada":l.docRevisada,"Cumple especificaciones":l.cumpleEspec,
+  "Apto exportación":l.aptoExport,"Destino si no apto":l.destinoNoApto,"Responsable":l.responsable||RESP_DEF,"Hallazgos":l.hallazgos,"ID app":l.id});
+const testFila = (l,t) => ({"Lote interno":l.loteInterno,"Fecha":dmy(t.fecha),"Nº testigo":t.n,"Nº pieza":t.pieza,"Tipo":t.tipo,"Peso (kg)":t.peso,"Tª (ºC)":t.temp,"pH":t.ph,"Grasa":t.grasa,
+  "ETG":t.etg,"Observaciones":t.obs,"ID testigo app":t.tid,"ID lote app":l.id});
+const lectFila = x => ({"Fecha":dmy(x.fecha),"Sala":x.salaNombre,"Tª (ºC)":x.temp,"HR (%)":x.hr,"Horas funcionamiento":x.horas,"Estado":x.estado,"Incidencia":x.incidencia,"Hora registro":x.hora,"ID app":x.id,"Orden":x.orden});
+const SALAS = [
+  ["SAL1","Cámara de salazón 1","Salazón 1","Salazón"],["SAL2","Cámara de salazón 2","Salazón 2","Salazón"],
+  ...[1,2,3,4,5,6,7,8].map(n=>["PS"+n,"Cámara de post salado "+n,"Post salado "+n,"Post salado"]),
+  ...[0,1,2,3,4,5].map(n=>["B"+n,"Bodega "+n,"Bodega "+n,"Bodegas"]), ["SOT","Sótano","Sótano","Bodegas"],
+  ["CONG","Cámara de congelación","Congelación","Otras salas"],["DESH","Sala blanca de deshuesado","Deshuesado","Otras salas"],
+  ["EXP","Sala de expedición","Expedición","Otras salas"],["C3","Cámara de grasas (C3)","Grasas (C3)","Otras salas"]
+].map((a,i)=>({c:a[0],n:a[1],s:a[2],g:a[3],o:i+1,horas:a[0].startsWith("PS")}));
+const SALA = Object.fromEntries(SALAS.map(x=>[x.c,x]));
 
 /* ============ Estado y almacenamiento local ============ */
-let state = {lotes:{}, pend:{}, lastTipo:""};
+let state = {lotes:{}, pend:{}, lect:{}, pendT:{}, lastTipo:""};
 let lsOk = true;
 try{ const raw = localStorage.getItem(LSKEY); if(raw){ const s = JSON.parse(raw); state = Object.assign(state, s); } }catch(e){ lsOk = false; }
 Object.values(state.lotes).forEach(l=>(l.testigos||[]).forEach(t=>{ if(!t.tid) t.tid=Date.now().toString(36)+Math.random().toString(36).slice(2,8); }));
@@ -153,7 +200,13 @@ const parseNum = v => { v=String(v==null?"":v).trim().replace(/\s/g,""); if(!v) 
 const fmtN = (n,d) => n==null||n===""||isNaN(n) ? "" : Number(n).toLocaleString("es-ES",{minimumFractionDigits:d,maximumFractionDigits:d});
 const normLI = s => String(s||"").trim().toUpperCase();
 const lotesVivos = () => Object.values(state.lotes).filter(l=>!l.deleted).sort((a,b)=> (b.fechaEntrada||"").localeCompare(a.fechaEntrada||"") || (b.createdAt||0)-(a.createdAt||0));
-const pendCount = () => Object.keys(state.pend).length;
+const pendCount = () => Object.keys(state.pend).length + Object.keys(state.pendT||{}).length;
+const lectId = (f,c) => f.replace(/-/g,"")+"_"+c;
+const lectDia = f => SALAS.map(x=>state.lect[lectId(f,x.c)]).filter(l=>l&&!l.deleted);
+const addDays = (f,n) => { const [y,m,d]=f.split("-").map(Number); const t=new Date(y,m-1,d+n); return t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")+"-"+String(t.getDate()).padStart(2,"0"); };
+const DIAS=["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+const diaTxt = f => { const [y,m,d]=f.split("-").map(Number); const w=DIAS[new Date(y,m-1,d).getDay()]; return f===today()?"Hoy, "+w:(f===addDays(today(),-1)?"Ayer, "+w:w.charAt(0).toUpperCase()+w.slice(1)); };
+function commitLect(l){ l.updatedAt=Date.now(); state.lect[l.id]=l; state.pendT[l.id]=true; persist(); updateSync(); sync(); }
 
 function commit(lote){ lote.updatedAt = Date.now(); state.lotes[lote.id] = lote; state.pend[lote.id] = true; persist(); updateSync(); sync(); }
 
@@ -166,8 +219,8 @@ function ask(msg, yesTxt="Sí"){ return new Promise(res=>{ $("#mtext").textConte
 
 /* ============ Navegación ============ */
 let view = {name:"home"};
-function go(v){ view = v; render(); window.scrollTo(0,0); }
-const isForm = () => view.name==="loteForm" || view.name==="testForm";
+function go(v){ view = v; if(recargar && !isForm()){ location.reload(); return; } render(); window.scrollTo(0,0); }
+const isForm = () => view.name==="loteForm" || view.name==="testForm" || view.name==="lectForm";
 
 function render(){
   const app = $("#app");
@@ -177,6 +230,8 @@ function render(){
   else if(view.name==="loteForm") app.innerHTML = vLoteForm();
   else if(view.name==="testForm") app.innerHTML = vTestForm();
   else if(view.name==="ajustes") app.innerHTML = vAjustes();
+  else if(view.name==="temp") app.innerHTML = vTemp();
+  else if(view.name==="lectForm") app.innerHTML = vLectForm();
   bindView();
   updateSync();
 }
@@ -186,11 +241,79 @@ function vHome(){
   return `<h1>¿Qué vas a registrar?</h1>
   <div class="tiles">
     <button class="tile on" data-go="entrada"><span class="ic">🍖</span><span class="tt">Entrada de jamón</span><span class="ds">Lotes que entran al secadero y sus testigos</span></button>
-    <div class="tile soon"><span class="ic">🌡️</span><span class="tt">Temperaturas</span><span class="ds">Temperatura y humedad de cada sala</span><span class="tag">Próximamente</span></div>
+    ${(()=>{ const hoy=lectDia(today()), n=hoy.length, inc=hoy.filter(l=>l.estado==="INCIDENCIA").length;
+      return `<button class="tile on" data-go="temp"><span class="ic">🌡️</span><span class="tt">Temperaturas</span><span class="ds">Temperatura y humedad de cada sala</span>
+      <span class="tag ${n===SALAS.length?"ok":"warn"}">Hoy: ${n} de ${SALAS.length} salas</span>${inc?`<span class="tag bad">${inc} incidencia${inc>1?"s":""} hoy</span>`:""}</button>`; })()}
     <div class="tile soon"><span class="ic">⚠️</span><span class="tt">Incidencias</span><span class="ds">Avisos por sala con foto y nota</span><span class="tag">Próximamente</span></div>
   </div>
   ${cfg?"":`<p class="card" style="margin-top:20px;border-color:var(--warn)">⚙ Falta conectar la app con Google Sheets. Toca la rueda de arriba a la derecha para configurarla.</p>`}
   ${lsOk?"":`<p class="card" style="margin-top:20px;border-color:var(--bad)">⚠️ Este navegador no permite guardar datos en el dispositivo. Mantén la conexión para no perder registros.</p>`}`;
+}
+
+/* ---------- Temperaturas: ronda del día ---------- */
+function vTemp(){
+  const f=view.fecha||today(); const ls=lectDia(f); const n=ls.length, tot=SALAS.length;
+  const grupos=[...new Set(SALAS.map(x=>x.g))];
+  return `<button class="back" data-go="home">← Inicio</button>
+  <h1>Temperatura y humedad</h1>
+  <div class="daynav"><button id="dPrev" aria-label="Día anterior">‹</button><div class="d"><b>${fmtD(f)}</b><span class="muted">${diaTxt(f)}</span></div><button id="dNext" aria-label="Día siguiente" ${f>=today()?"disabled":""}>›</button></div>
+  <div class="row"><b style="font-size:22px">${n} de ${tot} salas registradas</b>${n===tot?'<span class="tag ok">Ronda completa</span>':""}</div>
+  <div class="prog"><i style="width:${Math.round(n/tot*100)}%"></i></div>
+  ${n<tot?`<button class="btn pri big" id="nextSala" style="margin-bottom:8px">Empezar por la siguiente pendiente →</button>`:""}
+  ${grupos.map(g=>`<h2>${g}</h2><div class="salas">${SALAS.filter(x=>x.g===g).map(x=>{ const l=state.lect[lectId(f,x.c)]; const ok=l&&!l.deleted;
+    const cls=!ok?"pend":(l.estado==="INCIDENCIA"?"inc":"done");
+    return `<button class="sala ${cls}" data-sala="${x.c}"><span class="sn">${esc(x.s)}${ok&&state.pendT[l.id]?'<span class="dot" title="Pendiente de enviar"></span>':""}</span>
+      ${ok?`<span class="sv">${fmtN(l.temp,1)} ºC · ${fmtN(l.hr,0)} %${x.horas&&l.horas!=null?` · ${fmtN(l.horas,l.horas%1?1:0)} h`:""}</span>`:""}
+      <span class="ss">${!ok?"● Pendiente":(l.estado==="INCIDENCIA"?"✗ Incidencia":"✓ Correcto")}</span></button>`; }).join("")}</div>`).join("")}`;
+}
+function vLectForm(){
+  const x=SALA[view.sala], d=draft, isNew=!state.lect[d.id]||state.lect[d.id].deleted;
+  const dec=v=>v!=null?String(v).replace(".",","):"";
+  return `<button class="back" id="cancel">← Volver a las salas</button>
+  <h1 style="margin-bottom:4px">${esc(x.n)}</h1><p class="muted" style="margin-top:0">${fmtD(d.fecha)} · ${diaTxt(d.fecha)}</p>
+  <form id="f" autocomplete="off" novalidate><div class="card">
+    <div class="grid2">
+      <div class="f"><label class="l" for="ltemp">Temperatura (ºC) <span class="req">*</span></label><input class="in bignum" id="ltemp" inputmode="decimal" value="${dec(d.temp)}" enterkeyhint="next"><div class="ferr" id="e_ltemp"></div></div>
+      <div class="f"><label class="l" for="lhr">Humedad relativa (%) <span class="req">*</span></label><input class="in bignum" id="lhr" inputmode="decimal" value="${dec(d.hr)}" enterkeyhint="next"><div class="ferr" id="e_lhr"></div></div>
+    </div>
+    ${x.horas?`<div class="f"><label class="l" for="lhoras">Horas de funcionamiento hoy (h)</label><input class="in bignum" id="lhoras" inputmode="decimal" value="${dec(d.horas)}" enterkeyhint="done"><div class="ferr" id="e_lhoras"></div></div>`:""}
+    <label class="l">Estado de la sala <span class="req">*</span></label>
+    <div class="estado"><button type="button" class="ok ${d.estado==="OK"?"on":""}" data-e="OK">✓ Todo correcto</button><button type="button" class="ko ${d.estado==="INCIDENCIA"?"on":""}" data-e="INCIDENCIA">✗ Hay incidencia</button></div>
+    <div class="ferr" id="e_estado"></div>
+    <div class="f" id="incBox" style="margin-top:16px;${d.estado==="INCIDENCIA"?"":"display:none"}"><label class="l" for="linc">Describe la incidencia <span class="req">*</span></label><textarea class="in" id="linc" placeholder="Ej.: puerta abierta, ventilador parado, condensación…">${esc(d.incidencia)}</textarea><div class="ferr" id="e_linc"></div></div>
+  </div>
+  ${isNew?"":`<div style="margin-top:22px"><button type="button" class="btn danger" id="delLect">Borrar esta lectura</button></div>`}
+  </form>
+  <div class="bar"><div class="in2"><button class="btn big" id="lSave">Guardar</button><button class="btn pri big" id="lNext">Guardar y siguiente →</button></div></div>`;
+}
+function openLect(f,c){
+  const id=lectId(f,c), l=state.lect[id];
+  draft = l&&!l.deleted ? Object.assign({},l) : {id,fecha:f,sala:c,temp:null,hr:null,horas:null,estado:"",incidencia:""};
+  go({name:"lectForm",sala:c,fecha:f});
+}
+function nextPend(f,after){
+  const ord=SALAS.map(x=>x.c); let i=after?ord.indexOf(after)+1:0;
+  for(let k=0;k<ord.length;k++){ const c=ord[(i+k)%ord.length]; const l=state.lect[lectId(f,c)]; if(!l||l.deleted) return c; }
+  return null;
+}
+function saveLect(next){
+  const d=draft, x=SALA[view.sala]; let bad=false;
+  const t=numField("ltemp"), h=numField("lhr",{min:0}), hs=x.horas?numField("lhoras",{min:0}):{v:null};
+  if(t.bad||h.bad||hs.bad) bad=true;
+  if(!t.bad&&t.v==null){ $("#ltemp").classList.add("err"); $("#e_ltemp").textContent="Escribe la temperatura"; bad=true; }
+  if(!h.bad&&h.v==null){ $("#lhr").classList.add("err"); $("#e_lhr").textContent="Escribe la humedad"; bad=true; }
+  else if(!h.bad&&h.v>100){ $("#lhr").classList.add("err"); $("#e_lhr").textContent="La humedad va de 0 a 100"; bad=true; }
+  if(!hs.bad&&hs.v!=null&&hs.v>24){ $("#lhoras").classList.add("err"); $("#e_lhoras").textContent="Máximo 24 horas"; bad=true; }
+  $("#e_estado").textContent=""; if(!d.estado){ $("#e_estado").textContent="Pulsa «Todo correcto» o «Hay incidencia»"; bad=true; }
+  const inc=$("#linc").value.trim(); $("#e_linc").textContent="";
+  if(d.estado==="INCIDENCIA"&&!inc){ $("#linc").classList.add("err"); $("#e_linc").textContent="Describe brevemente la incidencia"; bad=true; }
+  if(bad){ toast("Revisa los campos marcados"); return; }
+  const n=new Date();
+  const l={id:d.id,fecha:d.fecha,sala:x.c,salaNombre:x.n,orden:x.o,temp:t.v,hr:h.v,horas:hs.v,estado:d.estado,incidencia:d.estado==="INCIDENCIA"?inc:"",
+           hora:String(n.getHours()).padStart(2,"0")+":"+String(n.getMinutes()).padStart(2,"0"),deleted:false};
+  commitLect(l); toast(x.s+" guardada");
+  if(next){ const c=nextPend(d.fecha,x.c); if(c){ openLect(d.fecha,c); return; } toast("¡Ronda completa!"); }
+  go({name:"temp",fecha:d.fecha});
 }
 
 /* ---------- Lista de lotes ---------- */
@@ -304,7 +427,6 @@ function vLoteForm(){
 /* ---------- Formulario de testigo ---------- */
 function vTestForm(){
   const l = state.lotes[view.id], d = draft, isNew = view.n==null;
-  const tipoOtro = d.tipo && !TIPOS.includes(d.tipo);
   const dec = (v,dd)=> v!=null ? String(v).replace(".",",") : "";
   return `<button class="back" id="cancel">← ${isNew?"Volver al lote":"Volver sin guardar"}</button>
   <div class="ntest"><b>Testigo nº ${d.n}</b><span class="muted">· Lote ${esc(l.loteInterno)}</span></div>
@@ -314,9 +436,8 @@ function vTestForm(){
         <div class="f"><label class="l" for="pieza">Nº pieza <span class="req">*</span></label><input class="in" id="pieza" inputmode="numeric" value="${esc(d.pieza)}" enterkeyhint="next"><div class="ferr" id="e_pieza"></div></div>
         <div class="f"><label class="l" for="fecha">Fecha</label><input class="in" type="date" id="fecha" value="${esc(d.fecha)}"></div>
       </div>
-      <div class="f"><label class="l">Tipo</label>
-        <div class="chips" id="tipos">${TIPOS.map(t=>`<button type="button" data-t="${esc(t)}" class="${d.tipo===t?"on":""}">${esc(t)}</button>`).join("")}<button type="button" data-t="__otro" class="${tipoOtro?"on":""}">Otro…</button></div>
-        <input class="in" id="tipoOtro" style="margin-top:10px;${tipoOtro?"":"display:none"}" placeholder="Escribe el tipo" value="${tipoOtro?esc(d.tipo):""}">
+      <div class="f"><label class="l" for="tipo">Tipo de producto</label>
+        <select class="in" id="tipo"><option value="">— Elige el producto —</option>${(d.tipo&&!TIPOS.includes(d.tipo)?[d.tipo]:[]).concat(TIPOS).map(t=>`<option value="${esc(t)}"${d.tipo===t?" selected":""}>${esc(t)}</option>`).join("")}</select>
       </div>
       <div class="grid2">
         <div class="f"><label class="l" for="peso">Peso (kg)</label><input class="in" id="peso" inputmode="decimal" value="${dec(d.peso)}" enterkeyhint="next"><div class="ferr" id="e_peso"></div></div>
@@ -369,18 +490,32 @@ function bindView(){
     const del=$("#delLote"); if(del) del.onclick=async()=>{ const l=state.lotes[view.id]; if(await ask(`¿Borrar el lote ${l.loteInterno} y sus ${(l.testigos||[]).length} testigos?`,"Borrar")){ const c=JSON.parse(JSON.stringify(l)); c.deleted=true; commit(c); toast("Lote borrado"); go({name:"entrada"}); } };
     if(!view.id) setTimeout(()=>{ const el=$("#loteInterno"); if(el && document.activeElement===document.body) el.focus(); },50);
   }
+  if(view.name==="temp"){
+    const f=view.fecha||today();
+    $("#dPrev").onclick=()=>go({name:"temp",fecha:addDays(f,-1)});
+    $("#dNext").onclick=()=>{ if(f<today()) go({name:"temp",fecha:addDays(f,1)}); };
+    const ns=$("#nextSala"); if(ns) ns.onclick=()=>{ const c=nextPend(f); if(c) openLect(f,c); };
+    app.querySelectorAll("[data-sala]").forEach(b=>b.onclick=()=>openLect(f,b.dataset.sala));
+  }
+  if(view.name==="lectForm"){
+    const ins=[...app.querySelectorAll("input.in")];
+    ins.forEach((el,i)=>el.addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); const nx=ins[i+1]; nx?nx.focus():el.blur(); } }));
+    $("#f").onsubmit=e=>e.preventDefault();
+    $("#cancel").onclick=()=>go({name:"temp",fecha:draft.fecha});
+    app.querySelectorAll(".estado button").forEach(b=>b.onclick=()=>{ draft.estado=b.dataset.e;
+      app.querySelectorAll(".estado button").forEach(x=>x.classList.toggle("on",x===b));
+      $("#incBox").style.display=draft.estado==="INCIDENCIA"?"":"none"; $("#e_estado").textContent="";
+      if(draft.estado==="INCIDENCIA") $("#linc").focus(); });
+    $("#lSave").onclick=()=>saveLect(false); $("#lNext").onclick=()=>saveLect(true);
+    const del=$("#delLect"); if(del) del.onclick=async()=>{ if(await ask("¿Borrar la lectura de "+SALA[view.sala].s+" del "+fmtD(draft.fecha)+"?","Borrar")){ const l=Object.assign({},state.lect[draft.id],{deleted:true}); commitLect(l); toast("Lectura borrada"); go({name:"temp",fecha:draft.fecha}); } };
+    setTimeout(()=>{ const el=$("#ltemp"); if(el&&!el.value&&document.activeElement===document.body) el.focus(); },50);
+  }
   if(view.name==="ajustes"){
     $("#syncNow").onclick=()=>{ if(!cfg){ toast("Primero pega el código de configuración"); return; } sync(true); };
     $("#saveCfg").onclick=()=>{ if(setCfgFromCode($("#cfgCode").value)){ toast("Conectado con Google Sheets"); render(); sync(true); } else toast("El código no es válido"); };
   }
   if(view.name==="testForm"){
     $("#cancel").onclick=()=>go({name:"lote",id:view.id});
-    $("#tipos").querySelectorAll("button").forEach(b=>b.onclick=()=>{
-      const o=$("#tipoOtro");
-      if(b.dataset.t==="__otro"){ draft.tipo="__otro"; o.style.display=""; o.focus(); }
-      else { draft.tipo=b.dataset.t; o.style.display="none"; }
-      $("#tipos").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));
-    });
     $("#saveEnd").onclick=()=>saveTest(false);
     const sn=$("#saveNext"); if(sn) sn.onclick=()=>saveTest(true);
     const del=$("#delTest"); if(del) del.onclick=async()=>{ if(await ask(`¿Borrar el testigo nº ${view.n}?`,"Borrar")){ const l=JSON.parse(JSON.stringify(state.lotes[view.id])); const gone=l.testigos.filter(t=>t.n===view.n).map(t=>t.tid); l.testigos=l.testigos.filter(t=>t.n!==view.n); l.delTids=(l.delTids||[]).concat(gone); commit(l); toast("Testigo borrado"); go({name:"lote",id:l.id}); } };
@@ -425,7 +560,7 @@ function saveLote(){
 function saveTest(next){
   const d=draft; const l=JSON.parse(JSON.stringify(state.lotes[view.id]));
   d.pieza=$("#pieza").value.trim(); d.fecha=$("#fecha").value||today(); d.obs=$("#obs").value.trim();
-  if(d.tipo==="__otro") d.tipo=$("#tipoOtro").value.trim();
+  d.tipo=$("#tipo").value;
   let bad=false;
   const p=$("#pieza"); p.classList.remove("err"); $("#e_pieza").textContent="";
   if(!d.pieza){ p.classList.add("err"); $("#e_pieza").textContent="El Nº de pieza es obligatorio"; bad=true; }
@@ -463,27 +598,52 @@ async function call(method,payload){
     const j=await r.json(); if(!j.ok) throw new Error(j.error||"error"); return j;
   } finally { clearTimeout(tm); }
 }
+function objetos(t){ return t&&t.cab ? t.filas.map(r=>Object.fromEntries(t.cab.map((c,i)=>[c,r[i]]))) : []; }
+const sv = v => v==null ? "" : String(v);
+const nv = v => (v===""||v==null||isNaN(Number(v))) ? null : Number(v);
+function desdeServidor(datos){
+  const lotes={};
+  objetos(datos.Lotes).forEach(r=>{ const id=sv(r["ID app"]); if(!id) return;
+    lotes[id]={id,loteInterno:sv(r["Lote interno"]),fechaEntrada:sv(r["Fecha entrada"]),proveedor:sv(r["Proveedor"]),loteOrigen:sv(r["Lote de origen"]),albaran:sv(r["Albarán/Factura"]),
+      dac:sv(r["DAC"]),nPiezas:nv(r["Nº piezas lote"]),pesoTotal:nv(r["Peso total lote (kg)"]),prodConformes:sv(r["Productos revisados conformes"]),docRevisada:sv(r["Documentación revisada"]),
+      cumpleEspec:sv(r["Cumple especificaciones"]),aptoExport:sv(r["Apto exportación"]),destinoNoApto:sv(r["Destino si no apto"]),responsable:sv(r["Responsable"]),hallazgos:sv(r["Hallazgos"]),testigos:[]}; });
+  objetos(datos.Testigos).forEach(r=>{ const l=lotes[sv(r["ID lote app"])], tid=sv(r["ID testigo app"]); if(!l||!tid) return;
+    l.testigos.push({tid,n:nv(r["Nº testigo"]),fecha:sv(r["Fecha"]),pieza:sv(r["Nº pieza"]),tipo:sv(r["Tipo"]),peso:nv(r["Peso (kg)"]),temp:nv(r["Tª (ºC)"]),ph:nv(r["pH"]),
+      grasa:nv(r["Grasa"]),etg:sv(r["ETG"]),obs:sv(r["Observaciones"])}); });
+  const lects=objetos(datos.Temperaturas).map(r=>{ const id=sv(r["ID app"]); return id&&{id,fecha:sv(r["Fecha"]),sala:id.split("_")[1]||"",salaNombre:sv(r["Sala"]),temp:nv(r["Tª (ºC)"]),
+      hr:nv(r["HR (%)"]),horas:nv(r["Horas funcionamiento"]),estado:sv(r["Estado"]),incidencia:sv(r["Incidencia"]),hora:sv(r["Hora registro"]),orden:nv(r["Orden"])}; }).filter(Boolean);
+  return {lotes:Object.values(lotes), lects};
+}
 async function sync(manual){
   if(!cfg||syncing){ updateSync(); return; }
   if(!navigator.onLine){ updateSync(); if(manual) toast("Sin conexión: los datos siguen guardados"); return; }
   syncing=true; net="sending"; updateSync();
   try{
-    let res=null;
-    for(const id of Object.keys(state.pend)){
-      const l=state.lotes[id]; if(!l){ delete state.pend[id]; continue; }
-      const sent=l.updatedAt;
-      res=await call("POST",{action:"save",lote:l});
-      if(state.lotes[id] && state.lotes[id].updatedAt===sent) delete state.pend[id];
-      persist();
+    Object.keys(state.pend).forEach(id=>{ if(!state.lotes[id]) delete state.pend[id]; });
+    Object.keys(state.pendT).forEach(id=>{ if(!state.lect[id]) delete state.pendT[id]; });
+    const put=[], upd=[], del=[], sentL={}, sentT={};
+    for(const id of Object.keys(state.pend)){ const l=state.lotes[id]; sentL[id]=l.updatedAt;
+      if(l.deleted){ del.push({t:"Lotes",col:"ID app",val:id},{t:"Testigos",col:"ID lote app",val:id}); continue; }
+      put.push({t:"Lotes",fila:loteFila(l)});
+      (l.testigos||[]).forEach(t=>put.push({t:"Testigos",fila:testFila(l,t)}));
+      upd.push({t:"Testigos",col:"ID lote app",val:id,set:{"Lote interno":l.loteInterno}});
+      (l.delTids||[]).forEach(tid=>del.push({t:"Testigos",col:"ID testigo app",val:tid}));
     }
-    if(!res) res=await call("GET");
-    mergeServer(res.lotes||[]); state.lastSync=Date.now(); net="ok"; persist();
+    for(const id of Object.keys(state.pendT)){ const x=state.lect[id]; sentT[id]=x.updatedAt;
+      if(x.deleted) del.push({t:"Temperaturas",col:"ID app",val:id}); else put.push({t:"Temperaturas",fila:lectFila(x)}); }
+    const res = await call("POST",{action:"sync",tablas:TABLAS,put,upd,del,
+      leer:[{t:"Lotes"},{t:"Testigos"},{t:"Temperaturas",colFecha:"Fecha",dias:60}]});
+    if(!(res.v>=3)) throw new Error("version");
+    for(const id in sentL) if(state.lotes[id] && state.lotes[id].updatedAt===sentL[id]){ delete state.pend[id]; delete state.lotes[id].delTids; }
+    for(const id in sentT) if(state.lect[id] && state.lect[id].updatedAt===sentT[id]) delete state.pendT[id];
+    const d=desdeServidor(res.datos||{});
+    mergeServer(d.lotes, d.lects); state.lastSync=Date.now(); net="ok"; persist();
     if(manual) toast("Sincronizado");
-  }catch(e){ net = e && e.message==="clave" ? "badkey" : "error"; if(manual) toast("No se pudo conectar. Se reintentará solo."); }
+  }catch(e){ const m=e&&e.message; net = m==="clave" ? "badkey" : (m==="version" ? "oldscript" : "error"); if(manual) toast(net==="oldscript"?"Falta actualizar el script de Google":"No se pudo conectar. Se reintentará solo."); }
   finally{ syncing=false; updateSync(); if(view.name==="ajustes") render(); }
   if(pendCount() && net==="ok") setTimeout(sync,800);
 }
-function mergeServer(list){
+function mergeServer(list, lects){
   const ids=new Set();
   for(const s of list){
     ids.add(s.id); if(state.pend[s.id]) continue;
@@ -491,6 +651,13 @@ function mergeServer(list){
     state.lotes[s.id]=Object.assign(s,{synced:true,deleted:false,updatedAt:loc?loc.updatedAt:0,createdAt:loc?loc.createdAt:0});
   }
   for(const id of Object.keys(state.lotes)){ const l=state.lotes[id]; if(!ids.has(id) && !state.pend[id] && (l.synced||l.deleted)) delete state.lotes[id]; }
+  const tids=new Set();
+  for(const s of lects){
+    tids.add(s.id); if(state.pendT[s.id]) continue;
+    const loc=state.lect[s.id];
+    state.lect[s.id]=Object.assign(s,{synced:true,deleted:false,updatedAt:loc?loc.updatedAt:0});
+  }
+  for(const id of Object.keys(state.lect)){ const l=state.lect[id]; if(!tids.has(id) && !state.pendT[id] && (l.synced||l.deleted)) delete state.lect[id]; }
   persist(); if(!isForm() && view.name!=="ajustes") render();
 }
 function updateSync(){
@@ -500,6 +667,7 @@ function updateSync(){
   else if(!navigator.onLine){ cls="pend"; txt = n? `Sin conexión · ${n} pendiente${pl}` : "Sin conexión · todo guardado"; }
   else if(net==="sending"){ cls="pend"; txt="Sincronizando…"; }
   else if(net==="badkey"){ cls="bad"; txt="Clave incorrecta"; }
+  else if(net==="oldscript"){ cls="bad"; txt="Falta actualizar el script"; }
   else if(net==="error"){ cls="pend"; txt = n? `Sin enviar · ${n} pendiente${pl}` : "Sin conexión con la hoja"; }
   else if(n){ cls="pend"; txt=`⏳ ${n} pendiente${pl}`; }
   else if(net==="ok"){ cls="ok"; txt="✓ Todo en Google Sheets"; }
@@ -514,6 +682,7 @@ function vAjustes(){
     <div class="kv">
       <div><span>Google Sheets</span><b>${cfg?"Conectado":"Sin configurar"}</b></div>
       <div><span>Pendientes de enviar</span><b>${n}</b></div>
+      <div><span>Versión de la app</span><b>${APP_VERSION}</b></div>
       <div><span>Última sincronización</span><b>${state.lastSync?new Date(state.lastSync).toLocaleString("es-ES",{dateStyle:"short",timeStyle:"short"}):"Nunca"}</b></div>
     </div>
     <button class="btn pri big" id="syncNow" style="margin-top:16px">⟳ Sincronizar ahora</button>
@@ -535,10 +704,18 @@ function vAjustes(){
 }
 document.addEventListener("click",e=>{ if(e.target.id==="sync"||e.target.id==="gear") go({name:"ajustes"}); });
 window.addEventListener("online",()=>sync());
+document.addEventListener("input",e=>{ const t=e.target; if(t.classList&&t.classList.contains("err")){ t.classList.remove("err"); const fe=t.parentElement.querySelector(".ferr"); if(fe) fe.textContent=""; } });
 window.addEventListener("offline",updateSync);
 document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") sync(); });
 setInterval(()=>{ if(navigator.onLine && (pendCount() || Date.now()-(state.lastSync||0)>120000)) sync(); },30000);
-if("serviceWorker" in navigator) window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+let swReg=null, recargar=false;
+if("serviceWorker" in navigator){
+  let teniaCtrl=!!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener("controllerchange",()=>{ if(!teniaCtrl){ teniaCtrl=true; return; } if(isForm()) recargar=true; else location.reload(); });
+  window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").then(r=>{ swReg=r; r.update().catch(()=>{}); }).catch(()=>{}));
+  document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible"&&swReg) swReg.update().catch(()=>{}); });
+  setInterval(()=>{ if(swReg) swReg.update().catch(()=>{}); },30*60000);
+}
 try{ navigator.storage && navigator.storage.persist && navigator.storage.persist(); }catch(e){}
 
 /* ============ Exportar a Excel (xlsx sin librerías) ============ */
