@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APP CALIDAD · Jamones Granadinos</title>
+<meta name="theme-color" content="#7A1F2B">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Calidad">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+:root{
+  --bg:#F5F0E8; --card:#FFFDF9; --ink:#2A1A14; --muted:#7A6A60; --line:#E3D9CC;
+  --brand:#7A1F2B; --brand-d:#5E1520; --brand-l:#F3E3E1;
+  --ok:#2E7D4F; --ok-l:#E2F2E7; --bad:#B3261E; --bad-l:#FBE4E2; --warn:#A86500; --warn-l:#FFF1D6;
+  --r:16px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:20px;line-height:1.35;-webkit-tap-highlight-color:transparent}
+button,input,textarea,select{font:inherit;color:inherit}
+header.top{position:sticky;top:0;z-index:5;background:var(--brand);color:#fff;padding:calc(14px + env(safe-area-inset-top)) 20px 14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+header.top .t{font-weight:700;font-size:24px;letter-spacing:.02em}
+header.top .s{font-size:16px;opacity:.85}
+#sync{margin-left:auto;cursor:pointer;border:0;font-size:16px;font-weight:600;padding:8px 14px;border-radius:999px;background:rgba(255,255,255,.15);white-space:nowrap}
+#sync.ok{background:#E2F2E7;color:var(--ok)}
+#sync.pend{background:var(--warn-l);color:var(--warn)}
+#sync.off{background:#fff;color:var(--muted)}
+#sync.bad{background:var(--bad-l);color:var(--bad)}
+#gear{background:rgba(255,255,255,.15);border:0;color:#fff;font-size:26px;width:52px;height:52px;border-radius:50%;cursor:pointer}
+textarea.code{font-family:ui-monospace,monospace;font-size:16px;min-height:110px}
+ol.steps{padding-left:24px;margin:8px 0}ol.steps li{margin-bottom:6px}
+main{max-width:980px;margin:0 auto;padding:20px 18px 120px}
+h1{font-size:32px;margin:6px 0 18px}
+h2{font-size:24px;margin:26px 0 12px}
+.muted{color:var(--muted)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
+.tile{display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-height:170px;padding:24px;border-radius:22px;border:2px solid var(--line);background:var(--card);text-align:left;cursor:pointer}
+.tile .ic{font-size:44px;line-height:1}
+.tile .tt{font-size:28px;font-weight:700}
+.tile .ds{font-size:18px;color:var(--muted)}
+.tile.on{border-color:var(--brand);box-shadow:0 4px 0 var(--brand-d)}
+.tile.on:active{transform:translateY(3px);box-shadow:0 1px 0 var(--brand-d)}
+.tile.soon{opacity:.55;cursor:default}
+.tag{display:inline-block;font-size:15px;font-weight:600;padding:3px 10px;border-radius:999px;background:var(--line);color:var(--muted)}
+.tag.warn{background:var(--warn-l);color:var(--warn)}
+.tag.ok{background:var(--ok-l);color:var(--ok)}
+.tag.bad{background:var(--bad-l);color:var(--bad)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:64px;padding:12px 26px;border-radius:var(--r);border:2px solid var(--brand);background:var(--card);color:var(--brand);font-weight:700;font-size:22px;cursor:pointer}
+.btn.pri{background:var(--brand);color:#fff;box-shadow:0 4px 0 var(--brand-d)}
+.btn.pri:active{transform:translateY(3px);box-shadow:0 1px 0 var(--brand-d)}
+.btn.big{min-height:84px;font-size:26px;width:100%}
+.btn.ghost{border-color:transparent;background:transparent;padding-left:6px}
+.btn.danger{border-color:var(--bad);color:var(--bad)}
+.btn[disabled]{opacity:.5}
+.row{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.row > .grow{flex:1}
+.back{font-size:22px;font-weight:600;color:var(--brand);background:none;border:0;padding:10px 0;cursor:pointer;min-height:56px}
+.card{background:var(--card);border:2px solid var(--line);border-radius:var(--r);padding:18px 20px}
+.list{display:flex;flex-direction:column;gap:12px}
+.lote{display:flex;gap:16px;align-items:center;width:100%;text-align:left;cursor:pointer}
+.lote .li{font-size:26px;font-weight:700}
+.lote .meta{color:var(--muted);font-size:18px}
+.lote .n{margin-left:auto;text-align:center;min-width:90px}
+.lote .n b{display:block;font-size:34px;line-height:1}
+.lote .n span{font-size:15px;color:var(--muted)}
+.dot{width:12px;height:12px;border-radius:50%;background:var(--warn);display:inline-block;margin-left:6px;vertical-align:middle}
+form .f{margin-bottom:18px}
+label.l{display:block;font-weight:600;font-size:19px;margin-bottom:6px}
+.req{color:var(--bad)}
+input.in,textarea.in,select.in{width:100%;min-height:64px;padding:10px 16px;border-radius:12px;border:2px solid var(--line);background:#fff;font-size:26px}
+textarea.in{min-height:96px;font-size:22px}
+input.in:focus,textarea.in:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-l)}
+input.in.err{border-color:var(--bad);background:var(--bad-l)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:0 18px}
+@media (max-width:640px){.grid2,.grid3{grid-template-columns:1fr}}
+.seg{display:flex;gap:10px}
+.seg button{flex:1;min-height:64px;border-radius:12px;border:2px solid var(--line);background:#fff;font-size:24px;font-weight:700;cursor:pointer}
+.seg button.si.on{background:var(--ok);border-color:var(--ok);color:#fff}
+.seg button.no.on{background:var(--bad);border-color:var(--bad);color:#fff}
+.yn{display:grid;grid-template-columns:1fr 260px;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+.yn:last-child{border-bottom:0}
+.yn .q{font-weight:600}
+@media (max-width:640px){.yn{grid-template-columns:1fr}}
+.chips{display:flex;flex-wrap:wrap;gap:10px}
+.chips button{min-height:58px;padding:8px 18px;border-radius:12px;border:2px solid var(--line);background:#fff;font-size:21px;font-weight:600;cursor:pointer}
+.chips button.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.ntest{display:flex;align-items:baseline;gap:12px;margin-bottom:16px}
+.ntest b{font-size:56px;line-height:1;color:var(--brand)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:14px 0}
+.stat{background:var(--card);border:2px solid var(--line);border-radius:14px;padding:12px;text-align:center}
+.stat b{display:block;font-size:30px}
+.stat span{font-size:15px;color:var(--muted)}
+@media (max-width:640px){.stats{grid-template-columns:repeat(2,1fr)}}
+table.t{width:100%;border-collapse:collapse;background:var(--card);border-radius:var(--r);overflow:hidden;font-size:19px}
+table.t th{background:var(--brand-l);text-align:left;padding:10px;font-size:16px}
+table.t td{padding:12px 10px;border-top:1px solid var(--line)}
+table.t tr.click{cursor:pointer}
+table.t td.num{text-align:right;font-variant-numeric:tabular-nums}
+.tw{overflow-x:auto;border:2px solid var(--line);border-radius:var(--r)}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 18px;font-size:18px}
+.kv div span{display:block;color:var(--muted);font-size:15px}
+.kv div b{font-weight:600}
+.bar{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:2px solid var(--line);padding:12px 18px;z-index:4}
+.bar .in2{max-width:980px;margin:0 auto;display:flex;gap:12px}
+.bar .in2 .btn{flex:1}
+#modal{position:fixed;inset:0;background:rgba(42,26,20,.5);display:none;align-items:center;justify-content:center;z-index:20;padding:20px}
+#modal.show{display:flex}
+#modal .box{background:var(--card);border-radius:20px;padding:26px;max-width:520px;width:100%}
+#modal .box p{font-size:22px;margin:0 0 22px}
+#toast{position:fixed;left:50%;bottom:110px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:14px 24px;border-radius:999px;font-size:20px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;z-index:30;white-space:nowrap}
+#toast.show{opacity:1}
+.empty{text-align:center;padding:40px 20px;color:var(--muted)}
+.ferr{color:var(--bad);font-size:17px;margin-top:4px}
+.search{margin-bottom:14px}
+</style>
+</head>
+<body>
+<header class="top">
+  <div><div class="t">APP CALIDAD</div><div class="s">Jamones Granadinos</div></div>
+  <button id="sync" class="off">…</button><button id="gear" aria-label="Ajustes">⚙</button>
+</header>
+<main id="app"></main>
+<div id="modal"><div class="box"><p id="mtext"></p><div class="row"><button class="btn grow" id="mno">Cancelar</button><button class="btn pri grow" id="myes">Sí</button></div></div></div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* ============ Constantes ============ */
+const RESP_DEF = "CECILIO RODRIGUEZ";
+const TIPOS = ["Jamón blanco","Paleta blanca","Jamón ibérico","Paleta ibérica"];
+const LOTES_COLS = ["Lote interno","Fecha entrada","Proveedor","Lote de origen","Albarán/Factura","DAC","Nº piezas lote","Peso total lote (kg)","Productos revisados conformes","Documentación revisada","Cumple especificaciones","Apto exportación","Destino si no apto","Responsable","Hallazgos"];
+const TEST_COLS = ["Lote interno","Fecha","Nº testigo","Nº pieza","Tipo","Peso (kg)","Tª (ºC)","pH","Grasa","ETG","Observaciones"];
+const YN = [["prodConformes","¿Revisados conformes los productos?"],["docRevisada","¿Se ha revisado toda la documentación?"],["cumpleEspec","¿Documentación y proveedor cumplen las especificaciones?"],["aptoExport","¿Apto para exportación?"]];
+const LSKEY = "appcalidad.v1";
+
+/* ============ Estado y almacenamiento local ============ */
+let state = {lotes:{}, pend:{}, lastTipo:""};
+let lsOk = true;
+try{ const raw = localStorage.getItem(LSKEY); if(raw){ const s = JSON.parse(raw); state = Object.assign(state, s); } }catch(e){ lsOk = false; }
+Object.values(state.lotes).forEach(l=>(l.testigos||[]).forEach(t=>{ if(!t.tid) t.tid=Date.now().toString(36)+Math.random().toString(36).slice(2,8); }));
+function persist(){ try{ localStorage.setItem(LSKEY, JSON.stringify(state)); lsOk = true; }catch(e){ lsOk = false; } }
+
+const $ = (s,r=document)=>r.querySelector(s);
+const esc = v => String(v==null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+const today = () => { const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
+const fmtD = s => s ? s.split("-").reverse().join("/") : "";
+const parseNum = v => { v=String(v==null?"":v).trim().replace(/\s/g,""); if(!v) return null; if(v.includes(",")) v=v.replace(/\./g,"").replace(",","."); const n=Number(v); return isFinite(n)?n:NaN; };
+const fmtN = (n,d) => n==null||n===""||isNaN(n) ? "" : Number(n).toLocaleString("es-ES",{minimumFractionDigits:d,maximumFractionDigits:d});
+const normLI = s => String(s||"").trim().toUpperCase();
+const lotesVivos = () => Object.values(state.lotes).filter(l=>!l.deleted).sort((a,b)=> (b.fechaEntrada||"").localeCompare(a.fechaEntrada||"") || (b.createdAt||0)-(a.createdAt||0));
+const pendCount = () => Object.keys(state.pend).length;
+
+function commit(lote){ lote.updatedAt = Date.now(); state.lotes[lote.id] = lote; state.pend[lote.id] = true; persist(); updateSync(); sync(); }
+
+/* ============ UI helpers ============ */
+let toastT;
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2200); }
+function ask(msg, yesTxt="Sí"){ return new Promise(res=>{ $("#mtext").textContent=msg; $("#myes").textContent=yesTxt; const m=$("#modal"); m.classList.add("show");
+  const done=v=>{ m.classList.remove("show"); $("#myes").onclick=$("#mno").onclick=null; res(v); };
+  $("#myes").onclick=()=>done(true); $("#mno").onclick=()=>done(false); }); }
+
+/* ============ Navegación ============ */
+let view = {name:"home"};
+function go(v){ view = v; render(); window.scrollTo(0,0); }
+const isForm = () => view.name==="loteForm" || view.name==="testForm";
+
+function render(){
+  const app = $("#app");
+  if(view.name==="home") app.innerHTML = vHome();
+  else if(view.name==="entrada") app.innerHTML = vEntrada();
+  else if(view.name==="lote") app.innerHTML = vLote();
+  else if(view.name==="loteForm") app.innerHTML = vLoteForm();
+  else if(view.name==="testForm") app.innerHTML = vTestForm();
+  else if(view.name==="ajustes") app.innerHTML = vAjustes();
+  bindView();
+  updateSync();
+}
+
+/* ---------- Inicio ---------- */
+function vHome(){
+  return `<h1>¿Qué vas a registrar?</h1>
+  <div class="tiles">
+    <button class="tile on" data-go="entrada"><span class="ic">🍖</span><span class="tt">Entrada de jamón</span><span class="ds">Lotes que entran al secadero y sus testigos</span></button>
+    <div class="tile soon"><span class="ic">🌡️</span><span class="tt">Temperaturas</span><span class="ds">Temperatura y humedad de cada sala</span><span class="tag">Próximamente</span></div>
+    <div class="tile soon"><span class="ic">⚠️</span><span class="tt">Incidencias</span><span class="ds">Avisos por sala con foto y nota</span><span class="tag">Próximamente</span></div>
+  </div>
+  ${cfg?"":`<p class="card" style="margin-top:20px;border-color:var(--warn)">⚙ Falta conectar la app con Google Sheets. Toca la rueda de arriba a la derecha para configurarla.</p>`}
+  ${lsOk?"":`<p class="card" style="margin-top:20px;border-color:var(--bad)">⚠️ Este navegador no permite guardar datos en el dispositivo. Mantén la conexión para no perder registros.</p>`}`;
+}
+
+/* ---------- Lista de lotes ---------- */
+function vEntrada(){
+  const q = normLI(view.q||"");
+  const all = lotesVivos();
+  const ls = q ? all.filter(l=>normLI(l.loteInterno).includes(q) || normLI(l.proveedor).includes(q)) : all;
+  const years = [...new Set(all.map(l=>(l.fechaEntrada||"").slice(0,4)).filter(Boolean))].sort().reverse();
+  return `<button class="back" data-go="home">← Inicio</button>
+  <h1>Entrada de jamón</h1>
+  <button class="btn pri big" id="nuevoLote">＋ Nuevo lote</button>
+  <h2>Lotes registrados (${all.length})</h2>
+  ${all.length>6?`<input class="in search" id="q" placeholder="Buscar lote o proveedor" value="${esc(view.q||"")}">`:""}
+  <div class="list">
+  ${ls.length? ls.map(l=>{ const nt=(l.testigos||[]).length; const val = YN.every(([k])=>l[k]);
+    return `<button class="card lote" data-lote="${l.id}">
+      <div><div class="li">${esc(l.loteInterno)}${state.pend[l.id]?'<span class="dot" title="Pendiente de enviar"></span>':""}</div>
+      <div class="meta">${fmtD(l.fechaEntrada)} · ${esc(l.proveedor||"Sin proveedor")}</div>
+      <div style="margin-top:6px">${val? (l.aptoExport==="SI"?'<span class="tag ok">Apto exportación</span>':'<span class="tag bad">No apto exportación</span>') : '<span class="tag warn">Valoración pendiente</span>'}</div></div>
+      <div class="n"><b>${nt}</b><span>testigos</span></div></button>`; }).join("")
+    : `<div class="empty">${all.length?"Ningún lote coincide con la búsqueda.":"Todavía no hay lotes. Pulsa «Nuevo lote» para empezar."}</div>`}
+  </div>
+  <h2>Exportar</h2>
+  <div class="card">
+    <div class="row">
+      <div class="grow"><label class="l" for="expY">Lotes a exportar</label>
+      <select class="in" id="expY"><option value="">Todos</option>${years.map(y=>`<option value="${y}">Entrados en ${y}</option>`).join("")}</select></div>
+      <button class="btn pri" id="export" style="align-self:flex-end">⬇ Exportar a Excel</button>
+    </div>
+    <p class="muted" style="margin:10px 0 0;font-size:17px">Genera las hojas «Lotes» y «Testigos» con las tablas tblLotes y tblTestigos y los mismos nombres de columna que tu registro. Además, cada noche se guarda una copia en Excel en tu Drive.</p>
+  </div>`;
+}
+
+/* ---------- Detalle de lote ---------- */
+function stats(ts){
+  const avg = k => { const v=ts.map(t=>t[k]).filter(x=>x!=null&&!isNaN(x)); return v.length? v.reduce((a,b)=>a+b,0)/v.length : null; };
+  return {n:ts.length, peso:avg("peso"), ph:avg("ph"), temp:avg("temp")};
+}
+function vLote(){
+  const l = state.lotes[view.id]; if(!l||l.deleted){ view={name:"entrada"}; return vEntrada(); }
+  const ts = (l.testigos||[]).slice().sort((a,b)=>a.n-b.n);
+  const s = stats(ts);
+  return `<button class="back" data-go="entrada">← Lotes</button>
+  <div class="row"><h1 class="grow" style="margin-bottom:6px">Lote ${esc(l.loteInterno)}</h1><button class="btn" id="editLote">✎ Editar lote</button></div>
+  <div class="card kv">
+    <div><span>Fecha entrada</span><b>${fmtD(l.fechaEntrada)}</b></div>
+    <div><span>Proveedor</span><b>${esc(l.proveedor)||"—"}</b></div>
+    <div><span>Lote de origen</span><b>${esc(l.loteOrigen)||"—"}</b></div>
+    <div><span>Albarán/Factura</span><b>${esc(l.albaran)||"—"}</b></div>
+    <div><span>DAC</span><b>${esc(l.dac)||"—"}</b></div>
+    <div><span>Nº piezas · Peso total</span><b>${l.nPiezas!=null?fmtN(l.nPiezas,0):"—"} · ${l.pesoTotal!=null?fmtN(l.pesoTotal,2)+" kg":"—"}</b></div>
+  </div>
+  <div style="margin-top:18px"><button class="btn pri big" id="addTest">＋ Añadir testigo nº ${nextN(l)}</button></div>
+  <div class="stats">
+    <div class="stat"><b>${s.n}</b><span>Testigos</span></div>
+    <div class="stat"><b>${s.peso!=null?fmtN(s.peso,2):"—"}</b><span>Peso medio (kg)</span></div>
+    <div class="stat"><b>${s.ph!=null?fmtN(s.ph,2):"—"}</b><span>pH medio</span></div>
+    <div class="stat"><b>${s.temp!=null?fmtN(s.temp,1):"—"}</b><span>Tª media (ºC)</span></div>
+  </div>
+  ${ts.length?`<div class="tw"><table class="t"><thead><tr><th>Nº</th><th>Pieza</th><th>Tipo</th><th>Peso</th><th>Tª</th><th>pH</th><th>Grasa</th><th>ETG</th></tr></thead><tbody>
+    ${ts.map(t=>`<tr class="click" data-test="${t.n}"><td><b>${t.n}</b></td><td>${esc(t.pieza)}</td><td>${esc(t.tipo)}</td><td class="num">${fmtN(t.peso,2)}</td><td class="num">${fmtN(t.temp,1)}</td><td class="num">${fmtN(t.ph,2)}</td><td class="num">${t.grasa!=null?fmtN(t.grasa,t.grasa%1?1:0):""}</td><td>${t.etg?`<span class="tag ${t.etg==="SI"?"ok":"bad"}">${t.etg}</span>`:""}</td></tr>`).join("")}
+  </tbody></table></div><p class="muted" style="font-size:16px">Toca un testigo para corregirlo.</p>`:`<div class="empty">Sin testigos todavía.</div>`}
+  <h2>Valoración final</h2>
+  <div class="card">
+    ${YN.map(([k,q])=>`<div class="yn"><div class="q">${q}</div><div>${l[k]?`<span class="tag ${l[k]==="SI"?"ok":"bad"}" style="font-size:20px">${l[k]}</span>`:'<span class="tag warn">Pendiente</span>'}</div></div>`).join("")}
+    ${l.aptoExport==="NO"?`<div class="yn"><div class="q">Destino si no apto</div><div>${esc(l.destinoNoApto)||"—"}</div></div>`:""}
+    <div class="yn"><div class="q">Responsable</div><div>${esc(l.responsable)}</div></div>
+    ${l.hallazgos?`<div class="yn"><div class="q">Hallazgos</div><div>${esc(l.hallazgos)}</div></div>`:""}
+    <button class="btn" id="editVal" style="margin-top:12px;width:100%">✎ Completar valoración</button>
+  </div>`;
+}
+function nextN(l){ return (l.testigos||[]).reduce((m,t)=>Math.max(m,t.n),0)+1; }
+
+/* ---------- Formulario de lote ---------- */
+let draft = null;
+function vLoteForm(){
+  const d = draft, isNew = !view.id;
+  const provs = [...new Set(lotesVivos().map(l=>l.proveedor).filter(Boolean))];
+  const seg = k => `<div class="seg" data-seg="${k}"><button type="button" class="si ${d[k]==="SI"?"on":""}" data-v="SI">SI</button><button type="button" class="no ${d[k]==="NO"?"on":""}" data-v="NO">NO</button></div>`;
+  return `<button class="back" id="cancel">← ${isNew?"Cancelar":"Volver sin guardar"}</button>
+  <h1>${isNew?"Nuevo lote":"Editar lote "+esc(d.loteInterno)}</h1>
+  <form id="f" autocomplete="off" novalidate>
+    <div class="card">
+      <div class="grid2">
+        <div class="f"><label class="l" for="loteInterno">Lote interno <span class="req">*</span></label><input class="in" id="loteInterno" value="${esc(d.loteInterno)}" autocapitalize="characters" enterkeyhint="next"><div class="ferr" id="e_loteInterno"></div></div>
+        <div class="f"><label class="l" for="fechaEntrada">Fecha entrada <span class="req">*</span></label><input class="in" type="date" id="fechaEntrada" value="${esc(d.fechaEntrada)}"></div>
+      </div>
+      <div class="f"><label class="l" for="proveedor">Proveedor</label><input class="in" id="proveedor" list="provs" value="${esc(d.proveedor)}" enterkeyhint="next"><datalist id="provs">${provs.map(p=>`<option value="${esc(p)}">`).join("")}</datalist></div>
+      <div class="grid3">
+        <div class="f"><label class="l" for="loteOrigen">Lote de origen</label><input class="in" id="loteOrigen" value="${esc(d.loteOrigen)}" enterkeyhint="next"></div>
+        <div class="f"><label class="l" for="albaran">Albarán/Factura</label><input class="in" id="albaran" value="${esc(d.albaran)}" enterkeyhint="next"></div>
+        <div class="f"><label class="l" for="dac">DAC</label><input class="in" id="dac" value="${esc(d.dac)}" enterkeyhint="next"></div>
+      </div>
+      <div class="grid2">
+        <div class="f"><label class="l" for="nPiezas">Nº piezas lote</label><input class="in" id="nPiezas" inputmode="numeric" value="${d.nPiezas??""}" enterkeyhint="next"><div class="ferr" id="e_nPiezas"></div></div>
+        <div class="f"><label class="l" for="pesoTotal">Peso total lote (kg)</label><input class="in" id="pesoTotal" inputmode="decimal" value="${d.pesoTotal!=null?String(d.pesoTotal).replace(".",","):""}" enterkeyhint="next"><div class="ferr" id="e_pesoTotal"></div></div>
+      </div>
+    </div>
+    <h2>Valoración final <span class="muted" style="font-size:18px;font-weight:500">(puedes completarla al terminar los testigos)</span></h2>
+    <div class="card">
+      ${YN.map(([k,q])=>`<div class="yn"><div class="q">${q}</div>${seg(k)}</div>`).join("")}
+      <div class="f" id="destBox" style="margin-top:14px;${d.aptoExport==="NO"?"":"display:none"}"><label class="l" for="destinoNoApto">Destino si no apto</label><input class="in" id="destinoNoApto" value="${esc(d.destinoNoApto)}"></div>
+      <div class="f" style="margin-top:14px"><label class="l" for="responsable">Responsable</label><input class="in" id="responsable" value="${esc(d.responsable)}"></div>
+      <div class="f"><label class="l" for="hallazgos">Hallazgos</label><textarea class="in" id="hallazgos">${esc(d.hallazgos)}</textarea></div>
+    </div>
+    ${isNew?"":`<div style="margin-top:22px"><button type="button" class="btn danger" id="delLote">Borrar este lote</button></div>`}
+  </form>
+  <div class="bar"><div class="in2"><button class="btn pri big" id="save">${isNew?"Guardar y añadir testigos →":"Guardar cambios"}</button></div></div>`;
+}
+
+/* ---------- Formulario de testigo ---------- */
+function vTestForm(){
+  const l = state.lotes[view.id], d = draft, isNew = view.n==null;
+  const tipoOtro = d.tipo && !TIPOS.includes(d.tipo);
+  const dec = (v,dd)=> v!=null ? String(v).replace(".",",") : "";
+  return `<button class="back" id="cancel">← ${isNew?"Volver al lote":"Volver sin guardar"}</button>
+  <div class="ntest"><b>Testigo nº ${d.n}</b><span class="muted">· Lote ${esc(l.loteInterno)}</span></div>
+  <form id="f" autocomplete="off" novalidate>
+    <div class="card">
+      <div class="grid2">
+        <div class="f"><label class="l" for="pieza">Nº pieza <span class="req">*</span></label><input class="in" id="pieza" inputmode="numeric" value="${esc(d.pieza)}" enterkeyhint="next"><div class="ferr" id="e_pieza"></div></div>
+        <div class="f"><label class="l" for="fecha">Fecha</label><input class="in" type="date" id="fecha" value="${esc(d.fecha)}"></div>
+      </div>
+      <div class="f"><label class="l">Tipo</label>
+        <div class="chips" id="tipos">${TIPOS.map(t=>`<button type="button" data-t="${esc(t)}" class="${d.tipo===t?"on":""}">${esc(t)}</button>`).join("")}<button type="button" data-t="__otro" class="${tipoOtro?"on":""}">Otro…</button></div>
+        <input class="in" id="tipoOtro" style="margin-top:10px;${tipoOtro?"":"display:none"}" placeholder="Escribe el tipo" value="${tipoOtro?esc(d.tipo):""}">
+      </div>
+      <div class="grid2">
+        <div class="f"><label class="l" for="peso">Peso (kg)</label><input class="in" id="peso" inputmode="decimal" value="${dec(d.peso)}" enterkeyhint="next"><div class="ferr" id="e_peso"></div></div>
+        <div class="f"><label class="l" for="temp">Tª (ºC)</label><input class="in" id="temp" inputmode="decimal" value="${dec(d.temp)}" enterkeyhint="next"><div class="ferr" id="e_temp"></div></div>
+        <div class="f"><label class="l" for="ph">pH</label><input class="in" id="ph" inputmode="decimal" value="${dec(d.ph)}" enterkeyhint="next"><div class="ferr" id="e_ph"></div></div>
+        <div class="f"><label class="l" for="grasa">Grasa</label><input class="in" id="grasa" inputmode="decimal" value="${dec(d.grasa)}" enterkeyhint="next"><div class="ferr" id="e_grasa"></div></div>
+      </div>
+      <div class="yn" style="border:0"><div class="q">ETG</div><div class="seg" data-seg="etg"><button type="button" class="si ${d.etg==="SI"?"on":""}" data-v="SI">SI</button><button type="button" class="no ${d.etg==="NO"?"on":""}" data-v="NO">NO</button></div></div>
+      <div class="f"><label class="l" for="obs">Observaciones</label><textarea class="in" id="obs">${esc(d.obs)}</textarea></div>
+    </div>
+    ${isNew?"":`<div style="margin-top:22px"><button type="button" class="btn danger" id="delTest">Borrar este testigo</button></div>`}
+  </form>
+  <div class="bar"><div class="in2">
+    ${isNew?`<button class="btn big" id="saveEnd">Guardar y terminar</button><button class="btn pri big" id="saveNext">Guardar y siguiente →</button>`
+           :`<button class="btn pri big" id="saveEnd">Guardar cambios</button>`}
+  </div></div>`;
+}
+
+/* ============ Eventos ============ */
+function bindView(){
+  const app = $("#app");
+  app.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>go({name:b.dataset.go}));
+  if(view.name==="entrada"){
+    $("#nuevoLote").onclick=()=>{ draft={loteInterno:"",fechaEntrada:today(),proveedor:"",loteOrigen:"",albaran:"",dac:"",nPiezas:null,pesoTotal:null,prodConformes:"",docRevisada:"",cumpleEspec:"",aptoExport:"",destinoNoApto:"",responsable:RESP_DEF,hallazgos:""}; go({name:"loteForm"}); };
+    app.querySelectorAll("[data-lote]").forEach(b=>b.onclick=()=>go({name:"lote",id:b.dataset.lote}));
+    const q=$("#q"); if(q) q.oninput=()=>{ view.q=q.value; const pos=q.selectionStart; render(); const q2=$("#q"); q2.focus(); q2.setSelectionRange(pos,pos); };
+    $("#export").onclick=exportXlsx;
+  }
+  if(view.name==="lote"){
+    const l=state.lotes[view.id];
+    const edit=()=>{ draft=JSON.parse(JSON.stringify(l)); go({name:"loteForm",id:l.id}); };
+    $("#editLote").onclick=edit; $("#editVal").onclick=()=>{ edit(); setTimeout(()=>{ const h=document.querySelectorAll("h2")[0]; h&&h.scrollIntoView(); },30); };
+    $("#addTest").onclick=()=>openTest(l);
+    app.querySelectorAll("[data-test]").forEach(r=>r.onclick=()=>{ const t=l.testigos.find(x=>x.n==r.dataset.test); draft=Object.assign({},t); go({name:"testForm",id:l.id,n:t.n}); });
+  }
+  if(view.name==="loteForm"||view.name==="testForm"){
+    // Enter = siguiente campo
+    const ins=[...app.querySelectorAll("input.in")];
+    ins.forEach((el,i)=>el.addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); const nx=ins.slice(i+1).find(x=>x.offsetParent); nx?nx.focus():el.blur(); } }));
+    app.querySelectorAll("[data-seg]").forEach(s=>s.querySelectorAll("button").forEach(b=>b.onclick=()=>{
+      const k=s.dataset.seg; draft[k] = draft[k]===b.dataset.v ? "" : b.dataset.v;
+      s.querySelectorAll("button").forEach(x=>x.classList.toggle("on", x.dataset.v===draft[k]));
+      if(k==="aptoExport") $("#destBox").style.display = draft[k]==="NO"?"":"none";
+    }));
+    $("#f").onsubmit=e=>e.preventDefault();
+  }
+  if(view.name==="loteForm"){
+    $("#cancel").onclick=()=>go(view.id?{name:"lote",id:view.id}:{name:"entrada"});
+    $("#save").onclick=saveLote;
+    const del=$("#delLote"); if(del) del.onclick=async()=>{ const l=state.lotes[view.id]; if(await ask(`¿Borrar el lote ${l.loteInterno} y sus ${(l.testigos||[]).length} testigos?`,"Borrar")){ const c=JSON.parse(JSON.stringify(l)); c.deleted=true; commit(c); toast("Lote borrado"); go({name:"entrada"}); } };
+    if(!view.id) setTimeout(()=>{ const el=$("#loteInterno"); if(el && document.activeElement===document.body) el.focus(); },50);
+  }
+  if(view.name==="ajustes"){
+    $("#syncNow").onclick=()=>{ if(!cfg){ toast("Primero pega el código de configuración"); return; } sync(true); };
+    $("#saveCfg").onclick=()=>{ if(setCfgFromCode($("#cfgCode").value)){ toast("Conectado con Google Sheets"); render(); sync(true); } else toast("El código no es válido"); };
+  }
+  if(view.name==="testForm"){
+    $("#cancel").onclick=()=>go({name:"lote",id:view.id});
+    $("#tipos").querySelectorAll("button").forEach(b=>b.onclick=()=>{
+      const o=$("#tipoOtro");
+      if(b.dataset.t==="__otro"){ draft.tipo="__otro"; o.style.display=""; o.focus(); }
+      else { draft.tipo=b.dataset.t; o.style.display="none"; }
+      $("#tipos").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));
+    });
+    $("#saveEnd").onclick=()=>saveTest(false);
+    const sn=$("#saveNext"); if(sn) sn.onclick=()=>saveTest(true);
+    const del=$("#delTest"); if(del) del.onclick=async()=>{ if(await ask(`¿Borrar el testigo nº ${view.n}?`,"Borrar")){ const l=JSON.parse(JSON.stringify(state.lotes[view.id])); const gone=l.testigos.filter(t=>t.n===view.n).map(t=>t.tid); l.testigos=l.testigos.filter(t=>t.n!==view.n); l.delTids=(l.delTids||[]).concat(gone); commit(l); toast("Testigo borrado"); go({name:"lote",id:l.id}); } };
+    if(view.n==null) setTimeout(()=>{ const el=$("#pieza"); if(el && document.activeElement===document.body) el.focus(); },50);
+  }
+}
+
+function openTest(l, keep){
+  const last = (l.testigos||[]).slice().sort((a,b)=>b.n-a.n)[0];
+  draft={n:nextN(l), fecha: keep?keep.fecha:today(), pieza:"", tipo: keep?keep.tipo:(last?last.tipo:(state.lastTipo||"")), peso:null,temp:null,ph:null,grasa:null, etg: keep?keep.etg:"", obs:""};
+  go({name:"testForm",id:l.id});
+}
+
+function numField(id, opts={}){
+  const el=$("#"+id); const v=parseNum(el.value); const e=$("#e_"+id);
+  el.classList.remove("err"); if(e) e.textContent="";
+  if(Number.isNaN(v)||(opts.int&&v!=null&&!Number.isInteger(v))||(v!=null&&opts.min!=null&&v<opts.min)){ el.classList.add("err"); if(e) e.textContent=opts.int?"Escribe un número entero":"Escribe un número válido (ej. 11,45)"; return {bad:true}; }
+  return {v};
+}
+
+function saveLote(){
+  const d=draft; const g=id=>$("#"+id).value.trim();
+  d.loteInterno=g("loteInterno"); d.fechaEntrada=g("fechaEntrada"); d.proveedor=g("proveedor"); d.loteOrigen=g("loteOrigen"); d.albaran=g("albaran"); d.dac=g("dac");
+  d.destinoNoApto = d.aptoExport==="NO" ? g("destinoNoApto") : ""; d.responsable=g("responsable")||RESP_DEF; d.hallazgos=g("hallazgos");
+  let bad=false;
+  const li=$("#loteInterno"), eli=$("#e_loteInterno"); li.classList.remove("err"); eli.textContent="";
+  if(!d.loteInterno){ li.classList.add("err"); eli.textContent="El lote interno es obligatorio"; bad=true; }
+  else if(lotesVivos().some(l=>l.id!==view.id && normLI(l.loteInterno)===normLI(d.loteInterno))){ li.classList.add("err"); eli.textContent="Ya existe un lote con ese nombre"; bad=true; }
+  if(!d.fechaEntrada){ $("#fechaEntrada").classList.add("err"); bad=true; }
+  const np=numField("nPiezas",{int:true,min:0}), pt=numField("pesoTotal",{min:0});
+  if(np.bad||pt.bad) bad=true;
+  if(bad){ toast("Revisa los campos marcados"); const f=document.querySelector(".err"); f&&f.scrollIntoView({block:"center"}); return; }
+  d.nPiezas=np.v; d.pesoTotal=pt.v;
+  let lote;
+  if(view.id){ lote=Object.assign(JSON.parse(JSON.stringify(state.lotes[view.id])), d); }
+  else { lote=Object.assign({id:uid(), createdAt:Date.now(), testigos:[], deleted:false}, d); }
+  commit(lote);
+  toast(view.id?"Lote guardado":"Lote creado");
+  if(view.id) go({name:"lote",id:lote.id}); else openTest(lote);
+}
+
+function saveTest(next){
+  const d=draft; const l=JSON.parse(JSON.stringify(state.lotes[view.id]));
+  d.pieza=$("#pieza").value.trim(); d.fecha=$("#fecha").value||today(); d.obs=$("#obs").value.trim();
+  if(d.tipo==="__otro") d.tipo=$("#tipoOtro").value.trim();
+  let bad=false;
+  const p=$("#pieza"); p.classList.remove("err"); $("#e_pieza").textContent="";
+  if(!d.pieza){ p.classList.add("err"); $("#e_pieza").textContent="El Nº de pieza es obligatorio"; bad=true; }
+  const r={}; for(const k of ["peso","temp","ph","grasa"]){ const x=numField(k,k==="temp"?{}:{min:0}); if(x.bad) bad=true; else r[k]=x.v; }
+  if(bad){ toast("Revisa los campos marcados"); return; }
+  Object.assign(d,r);
+  const t={tid:d.tid||uid(),n:d.n,fecha:d.fecha,pieza:d.pieza,tipo:d.tipo||"",peso:d.peso,temp:d.temp,ph:d.ph,grasa:d.grasa,etg:d.etg||"",obs:d.obs};
+  l.testigos = l.testigos||[];
+  const i=l.testigos.findIndex(x=>x.tid===t.tid);
+  if(i>=0) l.testigos[i]=t; else { if(view.n==null) t.n=nextN(l); l.testigos.push(t); }
+  if(t.tipo) state.lastTipo=t.tipo;
+  commit(l);
+  toast(`Testigo nº ${t.n} guardado`);
+  if(next) openTest(l, t); else go({name:"lote",id:l.id});
+}
+
+/* ============ Sincronización con Google Sheets ============ */
+const CFGKEY="appcalidad.cfg";
+let cfg=null; try{ cfg=JSON.parse(localStorage.getItem(CFGKEY)||"null"); }catch(e){}
+function setCfgFromCode(code){
+  code=String(code||"").trim(); const m=code.match(/cfg=([A-Za-z0-9_\-]+)/); if(m) code=m[1];
+  try{ const o=JSON.parse(decodeURIComponent(escape(atob(code.replace(/-/g,"+").replace(/_/g,"/")))));
+    if(!o||!/^https:\/\/script\.google\.com\//.test(o.u)||!o.t) throw 0;
+    cfg={u:o.u,t:o.t}; try{ localStorage.setItem(CFGKEY,JSON.stringify(cfg)); }catch(e){} return true; }catch(e){ return false; }
+}
+if(location.hash.indexOf("cfg=")>=0){ const okCfg=setCfgFromCode(location.hash); history.replaceState(null,"",location.pathname+location.search); setTimeout(()=>toast(okCfg?"Conectado con Google Sheets":"El enlace de configuración no es válido"),300); }
+
+let net="idle", syncing=false;
+async function call(method,payload){
+  const ctl=new AbortController(), tm=setTimeout(()=>ctl.abort(),45000);
+  try{
+    const r = method==="GET"
+      ? await fetch(cfg.u+(cfg.u.indexOf("?")>=0?"&":"?")+"token="+encodeURIComponent(cfg.t)+"&_="+Date.now(),{signal:ctl.signal,cache:"no-store"})
+      : await fetch(cfg.u,{method:"POST",body:JSON.stringify(Object.assign({token:cfg.t},payload)),signal:ctl.signal});
+    const j=await r.json(); if(!j.ok) throw new Error(j.error||"error"); return j;
+  } finally { clearTimeout(tm); }
+}
+async function sync(manual){
+  if(!cfg||syncing){ updateSync(); return; }
+  if(!navigator.onLine){ updateSync(); if(manual) toast("Sin conexión: los datos siguen guardados"); return; }
+  syncing=true; net="sending"; updateSync();
+  try{
+    let res=null;
+    for(const id of Object.keys(state.pend)){
+      const l=state.lotes[id]; if(!l){ delete state.pend[id]; continue; }
+      const sent=l.updatedAt;
+      res=await call("POST",{action:"save",lote:l});
+      if(state.lotes[id] && state.lotes[id].updatedAt===sent) delete state.pend[id];
+      persist();
+    }
+    if(!res) res=await call("GET");
+    mergeServer(res.lotes||[]); state.lastSync=Date.now(); net="ok"; persist();
+    if(manual) toast("Sincronizado");
+  }catch(e){ net = e && e.message==="clave" ? "badkey" : "error"; if(manual) toast("No se pudo conectar. Se reintentará solo."); }
+  finally{ syncing=false; updateSync(); if(view.name==="ajustes") render(); }
+  if(pendCount() && net==="ok") setTimeout(sync,800);
+}
+function mergeServer(list){
+  const ids=new Set();
+  for(const s of list){
+    ids.add(s.id); if(state.pend[s.id]) continue;
+    const loc=state.lotes[s.id];
+    state.lotes[s.id]=Object.assign(s,{synced:true,deleted:false,updatedAt:loc?loc.updatedAt:0,createdAt:loc?loc.createdAt:0});
+  }
+  for(const id of Object.keys(state.lotes)){ const l=state.lotes[id]; if(!ids.has(id) && !state.pend[id] && (l.synced||l.deleted)) delete state.lotes[id]; }
+  persist(); if(!isForm() && view.name!=="ajustes") render();
+}
+function updateSync(){
+  const el=$("#sync"); if(!el) return; const n=pendCount(), pl=n>1?"s":"";
+  let cls="off", txt;
+  if(!cfg){ cls="bad"; txt="⚙ Sin configurar"; }
+  else if(!navigator.onLine){ cls="pend"; txt = n? `Sin conexión · ${n} pendiente${pl}` : "Sin conexión · todo guardado"; }
+  else if(net==="sending"){ cls="pend"; txt="Sincronizando…"; }
+  else if(net==="badkey"){ cls="bad"; txt="Clave incorrecta"; }
+  else if(net==="error"){ cls="pend"; txt = n? `Sin enviar · ${n} pendiente${pl}` : "Sin conexión con la hoja"; }
+  else if(n){ cls="pend"; txt=`⏳ ${n} pendiente${pl}`; }
+  else if(net==="ok"){ cls="ok"; txt="✓ Todo en Google Sheets"; }
+  else txt="Conectando…";
+  el.className=cls; el.textContent=txt;
+}
+function vAjustes(){
+  const n=pendCount();
+  return `<button class="back" data-go="home">← Inicio</button>
+  <h1>Ajustes y sincronización</h1>
+  <div class="card">
+    <div class="kv">
+      <div><span>Google Sheets</span><b>${cfg?"Conectado":"Sin configurar"}</b></div>
+      <div><span>Pendientes de enviar</span><b>${n}</b></div>
+      <div><span>Última sincronización</span><b>${state.lastSync?new Date(state.lastSync).toLocaleString("es-ES",{dateStyle:"short",timeStyle:"short"}):"Nunca"}</b></div>
+    </div>
+    <button class="btn pri big" id="syncNow" style="margin-top:16px">⟳ Sincronizar ahora</button>
+  </div>
+  <h2>Código de configuración</h2>
+  <div class="card">
+    <p style="margin-top:0">Se pega una sola vez en cada móvil o tablet para conectarlo con la hoja de Google Sheets.</p>
+    <textarea class="in code" id="cfgCode" placeholder="Pega aquí el código o el enlace de configuración"></textarea>
+    <button class="btn" id="saveCfg" style="margin-top:12px;width:100%">Guardar código</button>
+  </div>
+  <h2>Instalar en el móvil o la tablet</h2>
+  <div class="card">
+    <b>Android (Chrome):</b>
+    <ol class="steps"><li>Abre esta página con internet.</li><li>Menú ⋮ → «Añadir a pantalla de inicio» o «Instalar aplicación».</li></ol>
+    <b>iPhone / iPad (Safari):</b>
+    <ol class="steps"><li>Abre esta página con internet.</li><li>Botón Compartir → «Añadir a pantalla de inicio».</li><li>Abre la app desde el icono y pega el código de configuración.</li></ol>
+    <p class="muted" style="margin-bottom:0;font-size:17px">Una vez instalada se abre sin conexión. Los datos se guardan en el dispositivo y se envían solos a Google Sheets cuando hay internet.</p>
+  </div>`;
+}
+document.addEventListener("click",e=>{ if(e.target.id==="sync"||e.target.id==="gear") go({name:"ajustes"}); });
+window.addEventListener("online",()=>sync());
+window.addEventListener("offline",updateSync);
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") sync(); });
+setInterval(()=>{ if(navigator.onLine && (pendCount() || Date.now()-(state.lastSync||0)>120000)) sync(); },30000);
+if("serviceWorker" in navigator) window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+try{ navigator.storage && navigator.storage.persist && navigator.storage.persist(); }catch(e){}
+
+/* ============ Exportar a Excel (xlsx sin librerías) ============ */
+const CRC=(()=>{ const t=new Uint32Array(256); for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c = c&1 ? 0xEDB88320^(c>>>1) : c>>>1; t[n]=c>>>0; } return t; })();
+function crc32(b){ let c=0xFFFFFFFF; for(let i=0;i<b.length;i++) c=CRC[(c^b[i])&255]^(c>>>8); return (c^0xFFFFFFFF)>>>0; }
+function zip(files){
+  const enc=new TextEncoder(), parts=[], cd=[]; let off=0;
+  const now=new Date(), dt=((now.getHours()<<11)|(now.getMinutes()<<5)|(now.getSeconds()>>1)), dd=(((now.getFullYear()-1980)<<9)|((now.getMonth()+1)<<5)|now.getDate());
+  for(const [name,content] of files){
+    const nb=enc.encode(name), data=enc.encode(content), crc=crc32(data);
+    const h=new DataView(new ArrayBuffer(30));
+    h.setUint32(0,0x04034b50,true); h.setUint16(4,20,true); h.setUint16(6,0x0800,true); h.setUint16(8,0,true); h.setUint16(10,dt,true); h.setUint16(12,dd,true);
+    h.setUint32(14,crc,true); h.setUint32(18,data.length,true); h.setUint32(22,data.length,true); h.setUint16(26,nb.length,true); h.setUint16(28,0,true);
+    parts.push(new Uint8Array(h.buffer),nb,data);
+    const c=new DataView(new ArrayBuffer(46));
+    c.setUint32(0,0x02014b50,true); c.setUint16(4,20,true); c.setUint16(6,20,true); c.setUint16(8,0x0800,true); c.setUint16(10,0,true); c.setUint16(12,dt,true); c.setUint16(14,dd,true);
+    c.setUint32(16,crc,true); c.setUint32(20,data.length,true); c.setUint32(24,data.length,true); c.setUint16(28,nb.length,true); c.setUint32(42,off,true);
+    cd.push(new Uint8Array(c.buffer),nb);
+    off += 30+nb.length+data.length;
+  }
+  const cdSize=cd.reduce((a,b)=>a+b.length,0);
+  const e=new DataView(new ArrayBuffer(22));
+  e.setUint32(0,0x06054b50,true); e.setUint16(8,files.length,true); e.setUint16(10,files.length,true); e.setUint32(12,cdSize,true); e.setUint32(16,off,true);
+  const all=[...parts,...cd,new Uint8Array(e.buffer)], out=new Uint8Array(all.reduce((a,b)=>a+b.length,0)); let p=0; for(const a of all){ out.set(a,p); p+=a.length; }
+  return out;
+}
+const xe = s => String(s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const colL = i => String.fromCharCode(65+i);
+const serial = s => { const [y,m,d]=s.split("-").map(Number); return (Date.UTC(y,m-1,d)-Date.UTC(1899,11,30))/86400000; };
+
+function buildXlsx(lotes){
+  const ss=[], ssi=new Map();
+  const S = v => { v=String(v); if(!ssi.has(v)){ ssi.set(v,ss.length); ss.push(v); } return ssi.get(v); };
+  // estilos: 0 normal · 1 cabecera · 2 fecha · 3 0.00 · 4 #,##0.00 · 5 0.0 · 6 texto · 7 entero
+  const sheet=(cols,widths,rows,tableRid)=>{
+    let x=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>`;
+    widths.forEach((w,i)=>x+=`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`);
+    x+=`</cols><sheetData><row r="1">`+cols.map((c,i)=>`<c r="${colL(i)}1" s="1" t="s"><v>${S(c)}</v></c>`).join("")+`</row>`;
+    rows.forEach((row,ri)=>{ const r=ri+2; x+=`<row r="${r}">`;
+      row.forEach(([kind,v,st],ci)=>{ if(v==null||v===""||(typeof v==="number"&&isNaN(v))) return; const ref=colL(ci)+r;
+        if(kind==="s") x+=`<c r="${ref}" s="${st||6}" t="s"><v>${S(v)}</v></c>`;
+        else if(kind==="d") x+=`<c r="${ref}" s="2"><v>${serial(v)}</v></c>`;
+        else x+=`<c r="${ref}" s="${st||0}"><v>${v}</v></c>`; });
+      x+=`</row>`; });
+    return x+`</sheetData><tableParts count="1"><tablePart r:id="${tableRid}"/></tableParts></worksheet>`;
+  };
+  const table=(id,name,cols,nrows)=>{ const ref=`A1:${colL(cols.length-1)}${Math.max(nrows,1)+1}`;
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="${id}" name="${name}" displayName="${name}" ref="${ref}" totalsRowShown="0"><autoFilter ref="${ref}"/><tableColumns count="${cols.length}">${cols.map((c,i)=>`<tableColumn id="${i+1}" name="${xe(c)}"/>`).join("")}</tableColumns><tableStyleInfo name="TableStyleMedium2" showFirstColumn="0" showLastColumn="0" showRowStripes="1" showColumnStripes="0"/></table>`; };
+
+  const lr = lotes.map(l=>[["s",l.loteInterno],["d",l.fechaEntrada],["s",l.proveedor],["s",l.loteOrigen],["s",l.albaran],["s",l.dac],["n",l.nPiezas,7],["n",l.pesoTotal,4],["s",l.prodConformes],["s",l.docRevisada],["s",l.cumpleEspec],["s",l.aptoExport],["s",l.destinoNoApto],["s",l.responsable||RESP_DEF],["s",l.hallazgos]]);
+  const tr = [];
+  lotes.forEach(l=> (l.testigos||[]).slice().sort((a,b)=>a.n-b.n).forEach(t=> tr.push([["s",l.loteInterno],["d",t.fecha],["n",t.n,7],["s",t.pieza],["s",t.tipo],["n",t.peso,3],["n",t.temp,5],["n",t.ph,3],["n",t.grasa,0],["s",t.etg],["s",t.obs]])));
+
+  const s1=sheet(LOTES_COLS,[16,13,24,16,13,14,12,14,13,13,13,12,20,20,40],lr,"rId1");
+  const s2=sheet(TEST_COLS,[16,12,11,11,16,11,10,9,9,8,40],tr,"rId1");
+  const sst=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${ss.length}" uniqueCount="${ss.length}">${ss.map(s=>`<si><t xml:space="preserve">${xe(s)}</t></si>`).join("")}</sst>`;
+  const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="4"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/><numFmt numFmtId="165" formatCode="0.00"/><numFmt numFmtId="166" formatCode="#,##0.00"/><numFmt numFmtId="167" formatCode="0.0"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><name val="Calibri"/><family val="2"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="8"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="166" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="167" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="1" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  const R="http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+  const files=[
+    ["[Content_Types].xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/tables/table1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml"/><Override PartName="/xl/tables/table2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/></Types>`],
+    ["_rels/.rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${R}/officeDocument" Target="xl/workbook.xml"/></Relationships>`],
+    ["xl/workbook.xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="${R}"><sheets><sheet name="Lotes" sheetId="1" r:id="rId1"/><sheet name="Testigos" sheetId="2" r:id="rId2"/></sheets></workbook>`],
+    ["xl/_rels/workbook.xml.rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${R}/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="${R}/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="${R}/styles" Target="styles.xml"/><Relationship Id="rId4" Type="${R}/sharedStrings" Target="sharedStrings.xml"/></Relationships>`],
+    ["xl/worksheets/sheet1.xml",s1],
+    ["xl/worksheets/sheet2.xml",s2],
+    ["xl/worksheets/_rels/sheet1.xml.rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${R}/table" Target="../tables/table1.xml"/></Relationships>`],
+    ["xl/worksheets/_rels/sheet2.xml.rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${R}/table" Target="../tables/table2.xml"/></Relationships>`],
+    ["xl/tables/table1.xml",table(1,"tblLotes",LOTES_COLS,lr.length)],
+    ["xl/tables/table2.xml",table(2,"tblTestigos",TEST_COLS,tr.length)],
+    ["xl/styles.xml",styles],
+    ["xl/sharedStrings.xml",sst],
+  ];
+  return zip(files);
+}
+window.__buildXlsx = buildXlsx;
+
+async function exportXlsx(){
+  const y=$("#expY").value;
+  const ls=lotesVivos().filter(l=>!y||(l.fechaEntrada||"").startsWith(y)).sort((a,b)=>(a.fechaEntrada||"").localeCompare(b.fechaEntrada||"")||(a.createdAt||0)-(b.createdAt||0));
+  if(!ls.length){ toast("No hay lotes que exportar"); return; }
+  const bytes=buildXlsx(ls);
+  const name=`R-Evaluacion_en_entrada_${y||"todos"}_${today()}.xlsx`;
+  const url=URL.createObjectURL(new Blob([bytes],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
+  const el=document.createElement("a"); el.href=url; el.download=name; document.body.appendChild(el); el.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); el.remove(); },3000);
+  toast("Excel exportado");
+}
+
+render();
+sync();
+</script>
+</body>
+</html>
