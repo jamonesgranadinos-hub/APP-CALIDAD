@@ -1,5 +1,5 @@
 // APP CALIDAD · funciona sin conexión y se actualiza sola
-const CACHE = "appcalidad-v7";
+const CACHE = "appcalidad-v8";
 const FILES = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES.map(u => new Request(u, { cache: "reload" })))).then(() => self.skipWaiting()));

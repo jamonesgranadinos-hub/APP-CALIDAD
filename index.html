@@ -188,7 +188,7 @@ const LOTES_COLS = ["Lote interno","Fecha entrada","Proveedor","Lote de origen",
 const TEST_COLS = ["Lote interno","Fecha","Nº testigo","Nº pieza","Tipo","Peso (kg)","Tª (ºC)","pH","Grasa","ETG","Observaciones"];
 const YN = [["prodConformes","¿Revisados conformes los productos?"],["docRevisada","¿Se ha revisado toda la documentación?"],["cumpleEspec","¿Documentación y proveedor cumplen las especificaciones?"],["aptoExport","¿Apto para exportación?"]];
 const LSKEY = "appcalidad.v1";
-const APP_VERSION = "3.3 · 31/10/2026";
+const APP_VERSION = "3.4 · 02/11/2026";
 const SINO = ["Productos revisados conformes","Documentación revisada","Cumple especificaciones","Apto exportación"];
 const TABLAS = {
   Lotes:{ cab:[...LOTES_COLS,"ID app"], k:"ID app", ocultas:["ID app"], orden:[["Fecha entrada",1]],
@@ -210,6 +210,9 @@ function tallasFilas(l){ const u=ubicaciones(l); return tallasDe(l).map(t=>({"Lo
 function movFilas(l){ const r=[]; (l.movs||[]).forEach(m=>m.tallas.forEach(t=>r.push({"Fecha":dmy(m.fecha),"Lote interno":l.loteInterno,"Talla":t,"Nº piezas":m.piezas&&m.piezas[t]!=null?m.piezas[t]:(l.tallas[t]?l.tallas[t].n:""),
   "Desde":m.desde&&m.desde[t]&&SALA[m.desde[t]]?SALA[m.desde[t]].n:"","Hacia":SALA[m.destino]?SALA[m.destino].n:m.destino,"Hora registro":m.ts?new Date(m.ts).toTimeString().slice(0,5):"",
   "ID app":m.mid+"_"+t,"ID mov":m.mid,"ID lote":l.id,"Código hacia":m.destino,"TS":m.ts||0}))); return r; }
+TABLAS.Manteca={ cab:["Fecha","Lote","Talla","Nº piezas","Hora registro","ID app","ID lote"], k:"ID app", ocultas:["ID app","ID lote"], orden:[["Fecha",1],["Hora registro",1]],
+  fmt:{"Fecha":"dd/mm/yyyy","Lote":"@","Talla":"@","Nº piezas":"0","Hora registro":"@"} };
+const mantFila = x => ({"Fecha":dmy(x.fecha),"Lote":x.lote,"Talla":x.talla,"Nº piezas":x.piezas,"Hora registro":x.hora,"ID app":x.id,"ID lote":x.loteId||""});
 TABLAS.Incidencias={ cab:["Fecha","Hora","Sala","Tipo","Descripción","Foto","Origen","ID app","Orden"], k:"ID app", ocultas:["ID app","Orden"], orden:[["Fecha",1],["Hora",1]],
   fmt:{"Fecha":"dd/mm/yyyy","Hora":"@","Sala":"@","Tipo":"@","Descripción":"@","Foto":"@","Origen":"@"} };
 const dmy = f => f ? f.split("-").reverse().join("/") : "";
@@ -245,7 +248,7 @@ function avisosSal(){
 const TIPOS_INC = ["Avería de cámara","Plagas o ácaros","Defecto en pieza","Limpieza","Temperatura fuera de rango","Otra"];
 
 /* ============ Estado y almacenamiento local ============ */
-let state = {lotes:{}, pend:{}, lect:{}, pendT:{}, inc:{}, pendI:{}, lastTipo:""};
+let state = {lotes:{}, pend:{}, lect:{}, pendT:{}, inc:{}, pendI:{}, mant:{}, pendM:{}, lastTipo:""};
 let lsOk = true;
 try{ const raw = localStorage.getItem(LSKEY); if(raw){ const s = JSON.parse(raw); state = Object.assign(state, s); } }catch(e){ lsOk = false; }
 Object.values(state.lotes).forEach(l=>(l.testigos||[]).forEach(t=>{ if(!t.tid) t.tid=Date.now().toString(36)+Math.random().toString(36).slice(2,8); }));
@@ -260,7 +263,10 @@ const parseNum = v => { v=String(v==null?"":v).trim().replace(/\s/g,""); if(!v) 
 const fmtN = (n,d) => n==null||n===""||isNaN(n) ? "" : Number(n).toLocaleString("es-ES",{minimumFractionDigits:d,maximumFractionDigits:d});
 const normLI = s => String(s||"").trim().toUpperCase();
 const lotesVivos = () => Object.values(state.lotes).filter(l=>!l.deleted).sort((a,b)=> (b.fechaEntrada||"").localeCompare(a.fechaEntrada||"") || (b.createdAt||0)-(a.createdAt||0));
-const pendCount = () => Object.keys(state.pend).length + Object.keys(state.pendT||{}).length + Object.keys(state.pendI||{}).length;
+const pendCount = () => Object.keys(state.pend).length + Object.keys(state.pendT||{}).length + Object.keys(state.pendI||{}).length + Object.keys(state.pendM||{}).length;
+const mantDia = f => Object.values(state.mant).filter(x=>!x.deleted&&x.fecha===f).sort((a,b)=>(a.ts||0)-(b.ts||0));
+const loteDeNombre = n => lotesVivos().find(l=>normLI(l.loteInterno)===normLI(n));
+function commitMant(x){ x.updatedAt=Date.now(); state.mant[x.id]=x; state.pendM[x.id]=true; persist(); updateSync(); sync(); }
 function incDia(f){
   const own=Object.values(state.inc).filter(x=>!x.deleted&&x.fecha===f).map(x=>Object.assign({origen:"app"},x));
   const tmp=lectDia(f).filter(l=>l.estado==="INCIDENCIA").map(l=>({origen:"temp",id:l.id,fecha:l.fecha,hora:l.hora,sala:l.sala,salaNombre:SALA[l.sala]?SALA[l.sala].n:l.salaNombre,tipo:"Ronda de temperaturas",nota:l.incidencia}));
@@ -300,7 +306,7 @@ function ask(msg, yesTxt="Sí"){ return new Promise(res=>{ $("#mtext").textConte
 /* ============ Navegación ============ */
 let view = {name:"home"};
 function go(v){ view = v; if(recargar && !isForm()){ location.reload(); return; } render(); window.scrollTo(0,0); }
-const isForm = () => ["loteForm","testForm","lectForm","incForm","tallasForm","mover"].includes(view.name);
+const isForm = () => ["loteForm","testForm","lectForm","incForm","tallasForm","mover","mantForm"].includes(view.name);
 
 function render(){
   const app = $("#app");
@@ -316,6 +322,8 @@ function render(){
   else if(view.name==="tallasForm") app.innerHTML = vTallasForm();
   else if(view.name==="mover") app.innerHTML = vMover();
   else if(view.name==="ubic") app.innerHTML = vUbic();
+  else if(view.name==="mant") app.innerHTML = vMant();
+  else if(view.name==="mantForm") app.innerHTML = vMantForm();
   else if(view.name==="incForm") app.innerHTML = vIncForm();
   bindView();
   updateSync();
@@ -334,6 +342,9 @@ function vHome(){
       return `<button class="tile on" data-go="temp"><span class="ic">🌡️</span><span class="tt">Temperaturas</span><span class="ds">Temperatura y humedad de cada sala</span>
       <span class="tag ${n===SALAS.length?"ok":"warn"}">Hoy: ${n} de ${SALAS.length} salas</span>${inc?`<span class="tag bad">${inc} incidencia${inc>1?"s":""} hoy</span>`:""}</button>`; })()}
     <button class="tile on" data-go="ubic"><span class="ic">📍</span><span class="tt">Ubicación de lotes</span><span class="ds">Qué lotes y tallas hay en cada sala</span></button>
+    ${(()=>{ const m=mantDia(today()), p=m.reduce((a,x)=>a+(x.piezas||0),0);
+      return `<button class="tile on" data-go="mant"><span class="ic">🧈</span><span class="tt">Manteca</span><span class="ds">Registro diario de piezas enmantecadas</span>
+      <span class="tag ${p?"ok":""}">Hoy: ${fmtN(p,0)} piezas</span></button>`; })()}
     ${(()=>{ const n=incDia(today()).length; return `<button class="tile on" data-go="inc"><span class="ic">⚠️</span><span class="tt">Incidencias</span><span class="ds">Avisos por sala con foto y nota</span>
       <span class="tag ${n?"bad":"ok"}">${n?`Hoy: ${n} incidencia${n>1?"s":""}`:"Hoy: ninguna"}</span></button>`; })()}
   </div>
@@ -405,6 +416,58 @@ function saveLect(next){
   commitLect(l); toast(x.s+" guardada");
   if(next){ const c=nextPend(d.fecha,x.c); if(c){ openLect(d.fecha,c); return; } toast("¡Ronda completa!"); }
   go({name:"temp",fecha:d.fecha});
+}
+
+/* ---------- Manteca ---------- */
+function vMant(){
+  const f=view.fecha||today(), ls=mantDia(f), tot=ls.reduce((a,x)=>a+(x.piezas||0),0);
+  const porLote={}; ls.forEach(x=>{ (porLote[x.lote]=porLote[x.lote]||[]).push(x); });
+  return `<button class="back" data-go="home">← Inicio</button>
+  <h1>Manteca</h1>
+  <button class="btn pri big" id="nuevaMant" style="margin-bottom:18px">＋ Apuntar manteca</button>
+  <div class="daynav"><button id="dPrev" aria-label="Día anterior">‹</button><div class="d"><b>${fmtD(f)}</b><span class="muted">${diaTxt(f)}</span></div><button id="dNext" aria-label="Día siguiente" ${f>=today()?"disabled":""}>›</button></div>
+  ${ls.length?`<div class="row" style="margin-bottom:12px"><b style="font-size:22px">Total del día: ${fmtN(tot,0)} piezas</b></div>
+  <div class="list">${Object.keys(porLote).map(lt=>`<div class="card"><div class="li" style="font-size:22px;font-weight:700;margin-bottom:6px">Lote ${esc(lt)}</div>
+    ${porLote[lt].map(x=>`<button class="hist" data-mant="${esc(x.id)}" style="display:block;width:100%;text-align:left;background:none;border-top:0;border-right:0;border-bottom:0;font:inherit;color:inherit">
+      <b>Talla ${esc(x.talla)}</b> · ${fmtN(x.piezas,0)} piezas <span class="muted" style="font-size:16px">· ${esc(x.hora||"")}</span>${state.pendM[x.id]?'<span class="dot" title="Pendiente de enviar"></span>':""}</button>`).join("")}</div>`).join("")}</div>
+  <p class="muted" style="font-size:16px">Toca un registro para corregirlo o borrarlo.</p>`
+  : `<div class="empty">Sin manteca registrada este día.</div>`}`;
+}
+function vMantForm(){
+  const d=draft, isNew=!state.mant[d.id]||state.mant[d.id].deleted, l=loteDeNombre(d.lote);
+  const lotes=lotesVivos().map(x=>x.loteInterno);
+  return `<button class="back" id="cancel">← ${isNew?"Volver":"Volver sin guardar"}</button>
+  <h1>${isNew?"Apuntar manteca":"Corregir registro"}</h1>
+  <form id="f" autocomplete="off" novalidate><div class="card">
+    <div class="grid2">
+      <div class="f"><label class="l" for="mlote">Lote <span class="req">*</span></label><input class="in bignum" id="mlote" list="mlotes" value="${esc(d.lote)}" autocapitalize="characters" enterkeyhint="next">
+        <datalist id="mlotes">${lotes.map(x=>`<option value="${esc(x)}">`).join("")}</datalist><div class="ferr" id="e_mlote"></div></div>
+      <div class="f"><label class="l" for="mfechaM">Fecha</label><input class="in" type="date" id="mfechaM" value="${esc(d.fecha)}"></div>
+    </div>
+    <p class="muted" id="mloteInfo" style="margin-top:-6px;font-size:16px">${l?`Lote registrado en la app${tallasDe(l).length?" · tallas: "+tallasDe(l).map(t=>`${t} (${fmtN(l.tallas[t].n,0)})`).join(", "):""}`:(d.lote?"Lote no registrado en la app: se guarda igualmente.":"Puedes escribir cualquier lote, aunque no esté dado de alta en la app.")}</p>
+    <label class="l">Talla <span class="req">*</span></label>
+    <div class="tallas" id="mTalla">${TALLAS.map(t=>`<button type="button" data-t="${t}" class="${d.talla===t?"on":""}"><b>${t}</b><span>${TALLA_N[t]}${l&&l.tallas&&l.tallas[t]?" · "+fmtN(l.tallas[t].n,0):""}</span></button>`).join("")}</div>
+    <div class="ferr" id="e_mtalla"></div>
+    <div class="f" style="margin-top:16px"><label class="l" for="mpiezas">Nº de piezas <span class="req">*</span></label><input class="in bignum" id="mpiezas" inputmode="numeric" value="${d.piezas??""}" enterkeyhint="done"><div class="ferr" id="e_mpiezas"></div></div>
+  </div>
+  ${isNew?"":`<div style="margin-top:22px"><button type="button" class="btn danger" id="delMant">Borrar este registro</button></div>`}
+  </form>
+  <div class="bar"><div class="in2">${isNew?`<button class="btn big" id="mtSave">Guardar</button><button class="btn pri big" id="mtNext">Guardar y otra talla →</button>`:`<button class="btn pri big" id="mtSave">Guardar cambios</button>`}</div></div>`;
+}
+function saveMant(next){
+  const d=draft; d.lote=$("#mlote").value.trim(); d.fecha=$("#mfechaM").value||today();
+  let bad=false; ["e_mlote","e_mtalla"].forEach(i=>$("#"+i).textContent="");
+  if(!d.lote){ $("#mlote").classList.add("err"); $("#e_mlote").textContent="Escribe el lote"; bad=true; }
+  if(!d.talla){ $("#e_mtalla").textContent="Elige la talla"; bad=true; }
+  const p=numField("mpiezas",{int:true,min:1});
+  if(!p.bad&&p.v==null){ $("#mpiezas").classList.add("err"); $("#e_mpiezas").textContent="Escribe el número de piezas"; bad=true; }
+  if(p.bad||bad){ toast("Revisa los campos marcados"); return; }
+  const l=loteDeNombre(d.lote), prev=state.mant[d.id], n=new Date();
+  const x={id:d.id,fecha:d.fecha,lote:l?l.loteInterno:d.lote.toUpperCase(),loteId:l?l.id:"",talla:d.talla,piezas:p.v,ts:prev&&!prev.deleted?prev.ts:Date.now(),
+    hora:prev&&!prev.deleted?prev.hora:String(n.getHours()).padStart(2,"0")+":"+String(n.getMinutes()).padStart(2,"0"),deleted:false};
+  commitMant(x); toast(`Lote ${x.lote} · ${x.talla} · ${fmtN(x.piezas,0)} piezas`);
+  if(next){ draft={id:uid(),fecha:x.fecha,lote:x.lote,talla:"",piezas:null}; go({name:"mantForm"}); }
+  else go({name:"mant",fecha:x.fecha});
 }
 
 /* ---------- Incidencias ---------- */
@@ -534,6 +597,8 @@ function vLote(){
   ${ts.length?`<div class="tw"><table class="t"><thead><tr><th>Nº testigo</th><th>Pieza</th><th>Tipo</th><th>Peso</th><th>Tª</th><th>pH</th><th>Grasa</th><th>ETG</th></tr></thead><tbody>
     ${ts.map(t=>`<tr class="click" data-test="${esc(t.tid)}"><td><b>${esc(t.n)}</b></td><td>${esc(t.pieza)}</td><td>${esc(t.tipo)}</td><td class="num">${fmtN(t.peso,2)}</td><td class="num">${fmtN(t.temp,1)}</td><td class="num">${fmtN(t.ph,2)}</td><td class="num">${t.grasa!=null?fmtN(t.grasa,t.grasa%1?1:0):""}</td><td>${t.etg?`<span class="tag ${t.etg==="SI"?"ok":"bad"}">${t.etg}</span>`:""}</td></tr>`).join("")}
   </tbody></table></div><p class="muted" style="font-size:16px">Toca un testigo para corregirlo.</p>`:`<div class="empty">Sin testigos todavía.</div>`}
+  ${(()=>{ const ms=Object.values(state.mant).filter(x=>!x.deleted&&(x.loteId===l.id||normLI(x.lote)===normLI(l.loteInterno))).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+    return ms.length?`<h2>Manteca dada</h2><div class="card">${ms.map(x=>`<div class="hist"><b>${fmtD(x.fecha)}</b> · Talla ${esc(x.talla)} · ${fmtN(x.piezas,0)} piezas</div>`).join("")}</div>`:""; })()}
   <h2>Valoración final</h2>
   <div class="card">
     ${YN.map(([k,q])=>`<div class="yn"><div class="q">${q}</div><div>${l[k]?`<span class="tag ${l[k]==="SI"?"ok":"bad"}" style="font-size:20px">${l[k]}</span>`:'<span class="tag warn">Pendiente</span>'}</div></div>`).join("")}
@@ -783,6 +848,28 @@ function bindView(){
       tl.forEach(t=>{ m.desde[t]=u[t]?u[t].dest:""; m.piezas[t]=c.tallas[t].n; if(draft.destino.startsWith("SAL")&&draft.dias[t]!=null) c.tallas[t].diasSal=draft.dias[t]; });
       c.movs=(c.movs||[]).concat([m]); commit(c); toast(`${tl.length===ts.length?"Lote":"Talla"+(tl.length>1?"s ":" ")+tl.join(", ")} → ${salaCorta(draft.destino)}`); go({name:"lote",id:c.id}); };
   }
+  if(view.name==="mant"){
+    const f=view.fecha||today();
+    $("#dPrev").onclick=()=>go({name:"mant",fecha:addDays(f,-1)});
+    $("#dNext").onclick=()=>{ if(f<today()) go({name:"mant",fecha:addDays(f,1)}); };
+    $("#nuevaMant").onclick=()=>{ draft={id:uid(),fecha:f,lote:"",talla:"",piezas:null}; go({name:"mantForm"}); };
+    app.querySelectorAll("[data-mant]").forEach(b=>b.onclick=()=>{ draft=Object.assign({},state.mant[b.dataset.mant]); go({name:"mantForm"}); });
+  }
+  if(view.name==="mantForm"){
+    $("#f").onsubmit=e=>e.preventDefault();
+    $("#cancel").onclick=()=>go({name:"mant",fecha:draft.fecha});
+    const info=()=>{ draft.lote=$("#mlote").value.trim(); const l=loteDeNombre(draft.lote);
+      $("#mloteInfo").textContent = l ? `Lote registrado en la app${tallasDe(l).length?" · tallas: "+tallasDe(l).map(t=>`${t} (${fmtN(l.tallas[t].n,0)})`).join(", "):""}` : (draft.lote?"Lote no registrado en la app: se guarda igualmente.":"Puedes escribir cualquier lote, aunque no esté dado de alta en la app.");
+      app.querySelectorAll("#mTalla button").forEach(b=>{ const t=b.dataset.t; b.querySelector("span").textContent=TALLA_N[t]+(l&&l.tallas&&l.tallas[t]?" · "+fmtN(l.tallas[t].n,0):""); }); };
+    $("#mlote").addEventListener("input",info); $("#mlote").addEventListener("change",info);
+    app.querySelectorAll("#mTalla button").forEach(b=>b.onclick=()=>{ draft.talla=b.dataset.t; $("#e_mtalla").textContent="";
+      app.querySelectorAll("#mTalla button").forEach(x=>x.classList.toggle("on",x===b));
+      const l=loteDeNombre($("#mlote").value), pz=$("#mpiezas"); if(l&&l.tallas&&l.tallas[draft.talla]&&!pz.value) pz.value=l.tallas[draft.talla].n;
+      pz.focus(); });
+    $("#mtSave").onclick=()=>saveMant(false); const mn=$("#mtNext"); if(mn) mn.onclick=()=>saveMant(true);
+    const del=$("#delMant"); if(del) del.onclick=async()=>{ if(await ask("¿Borrar este registro de manteca?","Borrar")){ commitMant(Object.assign({},state.mant[draft.id],{deleted:true})); toast("Registro borrado"); go({name:"mant",fecha:draft.fecha}); } };
+    setTimeout(()=>{ const el=$("#mlote"); if(el&&!el.value&&document.activeElement===document.body) el.focus(); },50);
+  }
   if(view.name==="inc"){
     const f=view.fecha||today();
     $("#dPrev").onclick=()=>go({name:"inc",fecha:addDays(f,-1)});
@@ -923,7 +1010,9 @@ function desdeServidor(datos){
     const sc=SALAS.find(x=>x.n===sv(r["Sala"])); const u=sv(r["Foto"]);
     return {id,fecha:sv(r["Fecha"]),hora:sv(r["Hora"]),sala:sc?sc.c:"",salaNombre:sv(r["Sala"]),orden:nv(r["Orden"]),tipo:sv(r["Tipo"]),nota:sv(r["Descripción"]),
       fotoUrl:/^https?:/.test(u)?u:"",foto:/^https?:/.test(u)}; }).filter(Boolean);
-  return {lotes:Object.values(lotes), lects, incs};
+  const mants=objetos(datos.Manteca).map(r=>{ const id=sv(r["ID app"]); return id&&{id,fecha:sv(r["Fecha"]),lote:sv(r["Lote"]),loteId:sv(r["ID lote"]),talla:sv(r["Talla"]),
+    piezas:nv(r["Nº piezas"]),hora:sv(r["Hora registro"])}; }).filter(Boolean);
+  return {lotes:Object.values(lotes), lects, incs, mants};
 }
 async function sync(manual){
   if(!cfg||syncing){ updateSync(); return; }
@@ -949,6 +1038,10 @@ async function sync(manual){
       if(!x.deleted && x.estado==="INCIDENCIA") put.push({t:"Incidencias",fila:{"Fecha":dmy(x.fecha),"Hora":x.hora,"Sala":x.salaNombre,"Tipo":"Ronda de temperaturas",
         "Descripción":x.incidencia,"Foto":"","Origen":"Ronda de temperaturas","ID app":"T_"+id,"Orden":x.orden}});
       else del.push({t:"Incidencias",col:"ID app",val:"T_"+id}); }
+    const sentM={};
+    Object.keys(state.pendM).forEach(id=>{ if(!state.mant[id]) delete state.pendM[id]; });
+    for(const id of Object.keys(state.pendM)){ const x=state.mant[id]; sentM[id]=x.updatedAt;
+      if(x.deleted) del.push({t:"Manteca",col:"ID app",val:id}); else put.push({t:"Manteca",fila:mantFila(x)}); }
     const archivos=[], sentI={};
     Object.keys(state.pendI).forEach(id=>{ if(!state.inc[id]) delete state.pendI[id]; });
     for(const id of Object.keys(state.pendI)){ const x=state.inc[id]; sentI[id]=x.updatedAt;
@@ -958,20 +1051,21 @@ async function sync(manual){
         if(data){ archivos.push({id,nombre:"INC_"+x.fecha+"_"+x.sala+"_"+id+".jpg",tipo:"image/jpeg",datos:String(data).split(",")[1]}); foto="archivo:"+id; } }
       put.push({t:"Incidencias",fila:incFila(x,foto)}); }
     const res = await call("POST",{action:"sync",tablas:TABLAS,put,upd,del,archivos,
-      leer:[{t:"Lotes"},{t:"Testigos"},{t:"Tallas"},{t:"Movimientos"},{t:"Temperaturas",colFecha:"Fecha",dias:60},{t:"Incidencias",colFecha:"Fecha",dias:60}]});
+      leer:[{t:"Lotes"},{t:"Testigos"},{t:"Tallas"},{t:"Movimientos"},{t:"Temperaturas",colFecha:"Fecha",dias:60},{t:"Incidencias",colFecha:"Fecha",dias:60},{t:"Manteca",colFecha:"Fecha",dias:120}]});
     if(!(res.v>=3) || (archivos.length && !(res.v>=4))) throw new Error("version");
     for(const a of archivos){ const u=res.archivos&&res.archivos[a.id]; if(u && state.inc[a.id]){ state.inc[a.id].fotoUrl=u; await fotosDB.del(a.id); } }
     for(const id in sentI) if(state.inc[id] && state.inc[id].updatedAt===sentI[id]) delete state.pendI[id];
+    for(const id in sentM) if(state.mant[id] && state.mant[id].updatedAt===sentM[id]) delete state.pendM[id];
     for(const id in sentL) if(state.lotes[id] && state.lotes[id].updatedAt===sentL[id]){ delete state.pend[id]; delete state.lotes[id].delTids; delete state.lotes[id].delOps; }
     for(const id in sentT) if(state.lect[id] && state.lect[id].updatedAt===sentT[id]) delete state.pendT[id];
     const d=desdeServidor(res.datos||{});
-    mergeServer(d.lotes, d.lects, d.incs); state.lastSync=Date.now(); net="ok"; persist();
+    mergeServer(d.lotes, d.lects, d.incs, d.mants); state.lastSync=Date.now(); net="ok"; persist();
     if(manual) toast("Sincronizado");
   }catch(e){ const m=e&&e.message; net = m==="clave" ? "badkey" : (m==="version" ? "oldscript" : "error"); if(manual) toast(net==="oldscript"?"Falta actualizar el script de Google":"No se pudo conectar. Se reintentará solo."); }
   finally{ syncing=false; updateSync(); if(view.name==="ajustes") render(); }
   if(pendCount() && net==="ok") setTimeout(sync,800);
 }
-function mergeServer(list, lects, incs){
+function mergeServer(list, lects, incs, mants){
   const ids=new Set();
   for(const s of list){
     ids.add(s.id); if(state.pend[s.id]) continue;
@@ -990,6 +1084,10 @@ function mergeServer(list, lects, incs){
     for(const s of incs){ iids.add(s.id); if(state.pendI[s.id]) continue; const loc=state.inc[s.id];
       state.inc[s.id]=Object.assign(s,{synced:true,deleted:false,updatedAt:loc?loc.updatedAt:0}); }
     for(const id of Object.keys(state.inc)){ const x=state.inc[id]; if(!iids.has(id) && !state.pendI[id] && (x.synced||x.deleted)) delete state.inc[id]; } }
+  if(mants){ const mids=new Set();
+    for(const s of mants){ mids.add(s.id); if(state.pendM[s.id]) continue; const loc=state.mant[s.id];
+      state.mant[s.id]=Object.assign(s,{synced:true,deleted:false,updatedAt:loc?loc.updatedAt:0,ts:loc?loc.ts:0}); }
+    for(const id of Object.keys(state.mant)){ const x=state.mant[id]; if(!mids.has(id) && !state.pendM[id] && (x.synced||x.deleted)) delete state.mant[id]; } }
   persist(); if(!isForm() && view.name!=="ajustes") render();
 }
 function updateSync(){
