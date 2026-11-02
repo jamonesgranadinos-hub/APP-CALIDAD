@@ -188,7 +188,7 @@ const LOTES_COLS = ["Lote interno","Fecha entrada","Proveedor","Lote de origen",
 const TEST_COLS = ["Lote interno","Fecha","Nº testigo","Nº pieza","Tipo","Peso (kg)","Tª (ºC)","pH","Grasa","ETG","Observaciones"];
 const YN = [["prodConformes","¿Revisados conformes los productos?"],["docRevisada","¿Se ha revisado toda la documentación?"],["cumpleEspec","¿Documentación y proveedor cumplen las especificaciones?"],["aptoExport","¿Apto para exportación?"]];
 const LSKEY = "appcalidad.v1";
-const APP_VERSION = "3.4 · 02/11/2026";
+const APP_VERSION = "3.5 · 02/11/2026";
 const SINO = ["Productos revisados conformes","Documentación revisada","Cumple especificaciones","Apto exportación"];
 const TABLAS = {
   Lotes:{ cab:[...LOTES_COLS,"ID app"], k:"ID app", ocultas:["ID app"], orden:[["Fecha entrada",1]],
@@ -228,8 +228,10 @@ const SALAS = [
   ...[1,2,3,4,5,6,7,8].map(n=>["PS"+n,"Cámara de post salado "+n,"Post salado "+n,"Post salado"]),
   ...[0,1,2,3,4,5].map(n=>["B"+n,"Bodega "+n,"Bodega "+n,"Bodegas"]), ["SOT","Sótano","Sótano","Bodegas"],
   ["CONG","Cámara de congelación","Congelación","Otras salas"],["DESH","Sala blanca de deshuesado","Deshuesado","Otras salas"],
-  ["EXP","Sala de expedición","Expedición","Otras salas"],["C3","Cámara de grasas (C3)","Grasas (C3)","Otras salas"]
-].map((a,i)=>({c:a[0],n:a[1],s:a[2],g:a[3],o:i+1,horas:a[0].startsWith("PS")}));
+  ["EXP","Sala de expedición","Expedición","Otras salas"],["C3","Cámara de grasas (C3)","Grasas (C3)","Otras salas"],
+  ["EST1","Estufaje 1","Estufaje 1","Estufajes"],["EST2","Estufaje 2","Estufaje 2","Estufajes"]
+].map((a,i)=>({c:a[0],n:a[1],s:a[2],g:a[3],o:i+1,horas:a[0].startsWith("PS")}))
+ .sort((a,b)=>["Salazón","Post salado","Bodegas","Estufajes","Otras salas"].indexOf(a.g)-["Salazón","Post salado","Bodegas","Estufajes","Otras salas"].indexOf(b.g) || a.o-b.o);
 const SALA = Object.fromEntries(SALAS.map(x=>[x.c,x]));
 const TALLAS = ["C","P","M","G","E","S","S1","S2","S3","S4"];
 const TALLA_N = {C:"Chico",P:"Pequeño",M:"Mediano",G:"Grande",E:"Exagerado",S:"Super",S1:"Super 1",S2:"Super 2",S3:"Super 3",S4:"Super 4"};
