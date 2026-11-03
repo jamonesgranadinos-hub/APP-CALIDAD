@@ -188,7 +188,7 @@ const LOTES_COLS = ["Lote interno","Fecha entrada","Proveedor","Lote de origen",
 const TEST_COLS = ["Lote interno","Fecha","Nº testigo","Nº pieza","Tipo","Peso (kg)","Clasificación","Tª (ºC)","pH","Grasa","ETG","Observaciones"];
 const YN = [["prodConformes","¿Revisados conformes los productos?"],["docRevisada","¿Se ha revisado toda la documentación?"],["cumpleEspec","¿Documentación y proveedor cumplen las especificaciones?"],["aptoExport","¿Apto para exportación?"]];
 const LSKEY = "appcalidad.v1";
-const APP_VERSION = "3.6 · 03/11/2026";
+const APP_VERSION = "3.7 · 03/11/2026";
 const SINO = ["Productos revisados conformes","Documentación revisada","Cumple especificaciones","Apto exportación"];
 const TABLAS = {
   Lotes:{ cab:[...LOTES_COLS,"ID app"], k:"ID app", ocultas:["ID app"], orden:[["Fecha entrada",1]],
@@ -210,6 +210,8 @@ function tallasFilas(l){ const u=ubicaciones(l); return tallasDe(l).map(t=>({"Lo
 function movFilas(l){ const r=[]; (l.movs||[]).forEach(m=>m.tallas.forEach(t=>r.push({"Fecha":dmy(m.fecha),"Lote interno":l.loteInterno,"Talla":t,"Nº piezas":m.piezas&&m.piezas[t]!=null?m.piezas[t]:(l.tallas[t]?l.tallas[t].n:""),
   "Desde":m.desde&&m.desde[t]&&SALA[m.desde[t]]?SALA[m.desde[t]].n:"","Hacia":SALA[m.destino]?SALA[m.destino].n:m.destino,"Hora registro":m.ts?new Date(m.ts).toTimeString().slice(0,5):"",
   "ID app":m.mid+"_"+t,"ID mov":m.mid,"ID lote":l.id,"Código hacia":m.destino,"TS":m.ts||0}))); return r; }
+TABLAS["Lotes anteriores"]={ cab:["Lote interno","Fecha entrada","Observaciones","ID app"], k:"ID app", ocultas:["ID app"], orden:[["Lote interno",1]],
+  fmt:{"Lote interno":"@","Fecha entrada":"dd/mm/yyyy","Observaciones":"@"} };
 TABLAS.Manteca={ cab:["Fecha","Lote","Talla","Nº piezas","Hora registro","ID app","ID lote"], k:"ID app", ocultas:["ID app","ID lote"], orden:[["Fecha",1],["Hora registro",1]],
   fmt:{"Fecha":"dd/mm/yyyy","Lote":"@","Talla":"@","Nº piezas":"0","Hora registro":"@"} };
 const mantFila = x => ({"Fecha":dmy(x.fecha),"Lote":x.lote,"Talla":x.talla,"Nº piezas":x.piezas,"Hora registro":x.hora,"ID app":x.id,"ID lote":x.loteId||""});
@@ -308,7 +310,7 @@ function ask(msg, yesTxt="Sí"){ return new Promise(res=>{ $("#mtext").textConte
 /* ============ Navegación ============ */
 let view = {name:"home"};
 function go(v){ view = v; if(recargar && !isForm()){ location.reload(); return; } render(); window.scrollTo(0,0); }
-const isForm = () => ["loteForm","testForm","lectForm","incForm","tallasForm","mover","mantForm"].includes(view.name);
+const isForm = () => ["loteForm","testForm","lectForm","incForm","tallasForm","mover","mantForm","antForm"].includes(view.name);
 
 function render(){
   const app = $("#app");
@@ -324,6 +326,7 @@ function render(){
   else if(view.name==="tallasForm") app.innerHTML = vTallasForm();
   else if(view.name==="mover") app.innerHTML = vMover();
   else if(view.name==="ubic") app.innerHTML = vUbic();
+  else if(view.name==="antForm") app.innerHTML = vAntForm();
   else if(view.name==="mant") app.innerHTML = vMant();
   else if(view.name==="mantForm") app.innerHTML = vMantForm();
   else if(view.name==="incForm") app.innerHTML = vIncForm();
@@ -539,7 +542,7 @@ async function saveInc(){
 /* ---------- Lista de lotes ---------- */
 function vEntrada(){
   const q = normLI(view.q||"");
-  const all = lotesVivos();
+  const all = lotesVivos().filter(l=>!l.anterior);
   const ls = q ? all.filter(l=>normLI(l.loteInterno).includes(q) || normLI(l.proveedor).includes(q)) : all;
   const years = [...new Set(all.map(l=>(l.fechaEntrada||"").slice(0,4)).filter(Boolean))].sort().reverse();
   return `<button class="back" data-go="home">← Inicio</button>
@@ -575,6 +578,7 @@ function stats(ts){
 }
 function vLote(){
   const l = state.lotes[view.id]; if(!l||l.deleted){ view={name:"entrada"}; return vEntrada(); }
+  if(l.anterior) return vLoteAnt(l);
   const ts = ordenTest(l);
   const s = stats(ts);
   return `<button class="back" data-go="entrada">← Lotes</button>
@@ -662,15 +666,76 @@ function vMover(){
   </div></form>
   <div class="bar"><div class="in2"><button class="btn pri big" id="mSave">Guardar movimiento</button></div></div>`;
 }
+function vLoteAnt(l){
+  const ms=Object.values(state.mant).filter(x=>!x.deleted&&(x.loteId===l.id||normLI(x.lote)===normLI(l.loteInterno))).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  return `<button class="back" data-go="ubic">← Ubicación de lotes</button>
+  <div class="row"><h1 class="grow" style="margin-bottom:6px">Lote ${esc(l.loteInterno)}</h1><button class="btn" id="editAnt">✎ Editar</button></div>
+  <div class="card kv">
+    <div><span>Tipo</span><b>Lote anterior a la app</b></div>
+    <div><span>Fecha de entrada</span><b>${l.fechaEntrada?fmtD(l.fechaEntrada):"—"}</b></div>
+    ${l.obs?`<div style="grid-column:1/-1"><span>Observaciones</span><b>${esc(l.obs)}</b></div>`:""}
+  </div>
+  ${vTallasLote(l)}
+  ${ms.length?`<h2>Manteca dada</h2><div class="card">${ms.map(x=>`<div class="hist"><b>${fmtD(x.fecha)}</b> · Talla ${esc(x.talla)} · ${fmtN(x.piezas,0)} piezas</div>`).join("")}</div>`:""}`;
+}
+function vAntForm(){
+  const d=draft, isNew=!view.id, grupos=[...new Set(DESTINOS.map(x=>x.g))];
+  const opts=sel=>`<option value="">— Sala —</option>`+grupos.map(g=>`<optgroup label="${g}">${DESTINOS.filter(x=>x.g===g).map(x=>`<option value="${x.c}"${sel===x.c?" selected":""}>${esc(x.n)}</option>`).join("")}</optgroup>`).join("");
+  return `<button class="back" id="cancel">← ${isNew?"Cancelar":"Volver sin guardar"}</button>
+  <h1>${isNew?"Añadir lote anterior":"Editar lote anterior"}</h1>
+  <form id="f" autocomplete="off" novalidate><div class="card">
+    <div class="grid2">
+      <div class="f"><label class="l" for="aLote">Lote interno <span class="req">*</span></label><input class="in bignum" id="aLote" value="${esc(d.loteInterno)}" autocapitalize="characters" enterkeyhint="next"><div class="ferr" id="e_aLote"></div></div>
+      <div class="f"><label class="l" for="aFecha">Fecha de entrada <span class="muted" style="font-weight:500">(si la sabes)</span></label><input class="in" type="date" id="aFecha" value="${esc(d.fechaEntrada)}"></div>
+    </div>
+    <div class="f"><label class="l" for="aObs">Observaciones</label><input class="in" id="aObs" value="${esc(d.obs)}" placeholder="Ej.: proveedor, tipo de producto…" style="font-size:20px"></div>
+  </div>
+  ${isNew?`<h2>Piezas y ubicación actual</h2><div class="card">
+    <div class="grid2">
+      <div class="f"><label class="l" for="aTodas">Todas las tallas están en</label><select class="in" id="aTodas">${opts(d.todas)}</select></div>
+      <div class="f"><label class="l" for="aDesde">Desde el día <span class="muted" style="font-weight:500">(si lo sabes)</span></label><input class="in" type="date" id="aDesde" value="${esc(d.desde)}"></div>
+    </div>
+    <div class="tgrid" style="grid-template-columns:70px 1fr 1.6fr"><div class="th" style="text-align:center">Talla</div><div class="th">Nº piezas</div><div class="th">Sala (si es distinta)</div>
+    ${TALLAS.map(t=>`<div class="tl">${t}<div class="th">${TALLA_N[t]}</div></div>
+      <input class="in" data-an="${t}" inputmode="numeric" value="${d.n[t]||""}">
+      <select class="in" data-as="${t}" style="min-height:56px;font-size:17px">${opts(d.sala[t]||"")}</select>`).join("")}</div>
+    <p id="aTot" style="font-size:20px;font-weight:700;margin-bottom:0"></p><div class="ferr" id="e_aT"></div>
+  </div>`:`<p class="muted">Las tallas se corrigen con «✎ Tallas» y la ubicación con «⇄ Mover piezas», dentro del lote.</p>
+    <div style="margin-top:12px"><button type="button" class="btn danger" id="delAnt">Borrar este lote</button></div>`}
+  </form>
+  <div class="bar"><div class="in2"><button class="btn pri big" id="aSave">${isNew?"Guardar lote":"Guardar cambios"}</button></div></div>`;
+}
+function saveAnt(){
+  const d=draft; let bad=false;
+  d.loteInterno=$("#aLote").value.trim(); d.fechaEntrada=$("#aFecha").value; d.obs=$("#aObs").value.trim();
+  $("#e_aLote").textContent=""; $("#aLote").classList.remove("err");
+  if(!d.loteInterno){ $("#aLote").classList.add("err"); $("#e_aLote").textContent="Escribe el lote"; bad=true; }
+  else if(lotesVivos().some(l=>l.id!==view.id && normLI(l.loteInterno)===normLI(d.loteInterno))){ $("#aLote").classList.add("err"); $("#e_aLote").textContent="Ya existe un lote con ese nombre"; bad=true; }
+  if(view.id){ if(bad){ toast("Revisa los campos marcados"); return; }
+    const c=JSON.parse(JSON.stringify(state.lotes[view.id])); c.loteInterno=d.loteInterno.toUpperCase(); c.fechaEntrada=d.fechaEntrada; c.obs=d.obs;
+    commit(c); toast("Lote guardado"); go({name:"lote",id:c.id}); return; }
+  const todas=$("#aTodas").value, desde=$("#aDesde").value||today(), tallas={}, porSala={};
+  $("#e_aT").textContent="";
+  TALLAS.forEach(t=>{ const i=document.querySelector(`[data-an="${t}"]`), n=parseNum(i.value); i.classList.remove("err");
+    if(Number.isNaN(n)||(n!=null&&(n<0||!Number.isInteger(n)))){ i.classList.add("err"); bad=true; return; }
+    if(n>0){ tallas[t]={n,diasSal:null}; const sa=document.querySelector(`[data-as="${t}"]`).value||todas; if(sa) (porSala[sa]=porSala[sa]||[]).push(t); } });
+  if(!Object.keys(tallas).length){ $("#e_aT").textContent="Escribe las piezas de al menos una talla"; bad=true; }
+  if(bad){ toast("Revisa los campos marcados"); return; }
+  let k=0; const movs=Object.keys(porSala).map(sa=>({mid:uid(),fecha:desde,ts:Date.now()+(k++),destino:sa,tallas:porSala[sa],desde:{},piezas:Object.fromEntries(porSala[sa].map(t=>[t,tallas[t].n]))}));
+  const l={id:uid(),anterior:true,createdAt:Date.now(),loteInterno:d.loteInterno.toUpperCase(),fechaEntrada:d.fechaEntrada,obs:d.obs,tallas,movs,testigos:[],deleted:false};
+  commit(l); toast("Lote "+l.loteInterno+" añadido"); go({name:"lote",id:l.id});
+}
 function vUbic(){
   const mapa={};
   lotesVivos().forEach(l=>{ const u=ubicaciones(l); tallasDe(l).forEach(t=>{ const c=u[t]?u[t].dest:"_"; ((mapa[c]=mapa[c]||{})[l.id]=mapa[c][l.id]||{l,ts:[]}).ts.push(t); }); });
   const salas=SALAS.filter(x=>mapa[x.c]).map(x=>x.c).concat(mapa._?["_"]:[]);
   return `<button class="back" data-go="home">← Inicio</button>
   <h1>Ubicación de lotes</h1>
+  <button class="btn pri big" id="nuevoAnt" style="margin-bottom:6px">＋ Añadir lote anterior</button>
+  <p class="muted" style="font-size:16px;margin-top:4px">Para lotes que entraron antes de usar la app: solo se apuntan sus tallas y dónde están.</p>
   ${salas.length?salas.map(c=>{ const ls=Object.values(mapa[c]); const tot=ls.reduce((a,x)=>a+x.ts.reduce((b,t)=>b+x.l.tallas[t].n,0),0);
     return `<h2>${c==="_"?"Sin ubicar todavía":esc(SALA[c].n)} <span class="muted" style="font-size:18px;font-weight:500">· ${fmtN(tot,0)} piezas</span></h2><div class="list">
-    ${ls.map(x=>`<button class="card lote" data-lote="${x.l.id}"><div><div class="li">Lote ${esc(x.l.loteInterno)}</div>
+    ${ls.map(x=>`<button class="card lote" data-lote="${x.l.id}"><div><div class="li">Lote ${esc(x.l.loteInterno)}${x.l.anterior?' <span class="tag">Anterior</span>':""}${state.pend[x.l.id]?'<span class="dot" title="Pendiente de enviar"></span>':""}</div>
       <div class="meta">${x.ts.map(t=>`${t} (${fmtN(x.l.tallas[t].n,0)})`).join(" · ")}</div></div></button>`).join("")}</div>`; }).join("")
   : `<div class="empty">Todavía no hay lotes con tallas registradas. Entra en un lote y pulsa «Apuntar piezas por talla».</div>`}`;
 }
@@ -760,9 +825,12 @@ function bindView(){
   }
   if(view.name==="lote"){
     const l=state.lotes[view.id];
+    if(l.anterior){ $("#editAnt").onclick=()=>{ draft={loteInterno:l.loteInterno,fechaEntrada:l.fechaEntrada||"",obs:l.obs||""}; go({name:"antForm",id:l.id}); }; }
+    else {
     const edit=()=>{ draft=JSON.parse(JSON.stringify(l)); go({name:"loteForm",id:l.id}); };
     $("#editLote").onclick=edit; $("#editVal").onclick=()=>{ edit(); setTimeout(()=>{ const h=document.querySelectorAll("h2")[0]; h&&h.scrollIntoView(); },30); };
     $("#addTest").onclick=()=>openTest(l);
+    }
     const et=$("#editTallas"); if(et) et.onclick=()=>{ draft=JSON.parse(JSON.stringify(l.tallas||{})); go({name:"tallasForm",id:l.id}); };
     const mp=$("#moverPiezas"); if(mp) mp.onclick=()=>{ draft={fecha:today(),tallas:[],destino:"",dias:{}}; go({name:"mover",id:l.id}); };
     app.querySelectorAll("[data-mov]").forEach(h=>h.onclick=async()=>{ const m=l.movs.find(x=>x.mid===h.dataset.mov); if(!m) return;
@@ -809,7 +877,17 @@ function bindView(){
     setTimeout(()=>{ const el=$("#ltemp"); if(el&&!el.value&&document.activeElement===document.body) el.focus(); },50);
   }
   if(view.name==="home") app.querySelectorAll("[data-avlote]").forEach(b=>b.onclick=()=>go({name:"lote",id:b.dataset.avlote}));
-  if(view.name==="ubic") app.querySelectorAll("[data-lote]").forEach(b=>b.onclick=()=>go({name:"lote",id:b.dataset.lote}));
+  if(view.name==="ubic"){ app.querySelectorAll("[data-lote]").forEach(b=>b.onclick=()=>go({name:"lote",id:b.dataset.lote}));
+    $("#nuevoAnt").onclick=()=>{ draft={loteInterno:"",fechaEntrada:"",obs:"",todas:"",desde:"",n:{},sala:{}}; go({name:"antForm"}); }; }
+  if(view.name==="antForm"){
+    $("#f").onsubmit=e=>e.preventDefault();
+    $("#cancel").onclick=()=>go(view.id?{name:"lote",id:view.id}:{name:"ubic"});
+    $("#aSave").onclick=saveAnt;
+    const tot=()=>{ const t=$("#aTot"); if(!t) return; let s2=0; app.querySelectorAll("[data-an]").forEach(i=>{ const v=parseNum(i.value); if(v>0) s2+=v; }); t.textContent=s2?`Total: ${fmtN(s2,0)} piezas`:""; };
+    app.querySelectorAll("[data-an]").forEach(i=>i.addEventListener("input",tot));
+    const del=$("#delAnt"); if(del) del.onclick=async()=>{ const l=state.lotes[view.id]; if(await ask(`¿Borrar el lote ${l.loteInterno} y su historial de movimientos?`,"Borrar")){ commit(Object.assign(JSON.parse(JSON.stringify(l)),{deleted:true})); toast("Lote borrado"); go({name:"ubic"}); } };
+    if(!view.id) setTimeout(()=>{ const el=$("#aLote"); if(el&&document.activeElement===document.body) el.focus(); },50);
+  }
   if(view.name==="tallasForm"){
     $("#f").onsubmit=e=>e.preventDefault();
     const ins=[...app.querySelectorAll("input.in")];
@@ -1001,6 +1079,8 @@ function desdeServidor(datos){
   objetos(datos.Testigos).forEach(r=>{ const l=lotes[sv(r["ID lote app"])], tid=sv(r["ID testigo app"]); if(!l||!tid) return;
     l.testigos.push({tid,n:sv(r["Nº testigo"]),fecha:sv(r["Fecha"]),pieza:sv(r["Nº pieza"]),tipo:sv(r["Tipo"]),peso:nv(r["Peso (kg)"]),clas:sv(r["Clasificación"]),temp:nv(r["Tª (ºC)"]),ph:nv(r["pH"]),
       grasa:nv(r["Grasa"]),etg:sv(r["ETG"]),obs:sv(r["Observaciones"])}); });
+  objetos(datos["Lotes anteriores"]).forEach(r=>{ const id=sv(r["ID app"]); if(!id) return;
+    lotes[id]={id,anterior:true,loteInterno:sv(r["Lote interno"]),fechaEntrada:sv(r["Fecha entrada"]),obs:sv(r["Observaciones"]),testigos:[]}; });
   Object.values(lotes).forEach(l=>{ l.tallas={}; l.movs=[]; });
   objetos(datos.Tallas).forEach(r=>{ const l=lotes[sv(r["ID lote"])], t=sv(r["Talla"]); if(!l||!TALLAS.includes(t)) return;
     l.tallas[t]={n:nv(r["Nº piezas"])||0,diasSal:nv(r["Días de sal"])}; });
@@ -1029,8 +1109,9 @@ async function sync(manual){
     Object.keys(state.pendT).forEach(id=>{ if(!state.lect[id]) delete state.pendT[id]; });
     const put=[], upd=[], del=[], sentL={}, sentT={};
     for(const id of Object.keys(state.pend)){ const l=state.lotes[id]; sentL[id]=l.updatedAt;
-      if(l.deleted){ del.push({t:"Lotes",col:"ID app",val:id},{t:"Testigos",col:"ID lote app",val:id},{t:"Tallas",col:"ID lote",val:id},{t:"Movimientos",col:"ID lote",val:id}); continue; }
-      put.push({t:"Lotes",fila:loteFila(l)});
+      if(l.deleted){ del.push({t:"Lotes",col:"ID app",val:id},{t:"Lotes anteriores",col:"ID app",val:id},{t:"Testigos",col:"ID lote app",val:id},{t:"Tallas",col:"ID lote",val:id},{t:"Movimientos",col:"ID lote",val:id}); continue; }
+      if(l.anterior) put.push({t:"Lotes anteriores",fila:{"Lote interno":l.loteInterno,"Fecha entrada":dmy(l.fechaEntrada),"Observaciones":l.obs||"","ID app":l.id}});
+      else put.push({t:"Lotes",fila:loteFila(l)});
       (l.testigos||[]).forEach(t=>put.push({t:"Testigos",fila:testFila(l,t)}));
       upd.push({t:"Testigos",col:"ID lote app",val:id,set:{"Lote interno":l.loteInterno}});
       (l.delTids||[]).forEach(tid=>del.push({t:"Testigos",col:"ID testigo app",val:tid}));
@@ -1057,7 +1138,7 @@ async function sync(manual){
         if(data){ archivos.push({id,nombre:"INC_"+x.fecha+"_"+x.sala+"_"+id+".jpg",tipo:"image/jpeg",datos:String(data).split(",")[1]}); foto="archivo:"+id; } }
       put.push({t:"Incidencias",fila:incFila(x,foto)}); }
     const res = await call("POST",{action:"sync",tablas:TABLAS,put,upd,del,archivos,
-      leer:[{t:"Lotes"},{t:"Testigos"},{t:"Tallas"},{t:"Movimientos"},{t:"Temperaturas",colFecha:"Fecha",dias:60},{t:"Incidencias",colFecha:"Fecha",dias:60},{t:"Manteca",colFecha:"Fecha",dias:120}]});
+      leer:[{t:"Lotes"},{t:"Lotes anteriores"},{t:"Testigos"},{t:"Tallas"},{t:"Movimientos"},{t:"Temperaturas",colFecha:"Fecha",dias:60},{t:"Incidencias",colFecha:"Fecha",dias:60},{t:"Manteca",colFecha:"Fecha",dias:120}]});
     if(!(res.v>=3) || (archivos.length && !(res.v>=4))) throw new Error("version");
     for(const a of archivos){ const u=res.archivos&&res.archivos[a.id]; if(u && state.inc[a.id]){ state.inc[a.id].fotoUrl=u; await fotosDB.del(a.id); } }
     for(const id in sentI) if(state.inc[id] && state.inc[id].updatedAt===sentI[id]) delete state.pendI[id];
@@ -1230,7 +1311,7 @@ window.__buildXlsx = buildXlsx;
 
 async function exportXlsx(){
   const y=$("#expY").value;
-  const ls=lotesVivos().filter(l=>!y||(l.fechaEntrada||"").startsWith(y)).sort((a,b)=>(a.fechaEntrada||"").localeCompare(b.fechaEntrada||"")||(a.createdAt||0)-(b.createdAt||0));
+  const ls=lotesVivos().filter(l=>!l.anterior).filter(l=>!y||(l.fechaEntrada||"").startsWith(y)).sort((a,b)=>(a.fechaEntrada||"").localeCompare(b.fechaEntrada||"")||(a.createdAt||0)-(b.createdAt||0));
   if(!ls.length){ toast("No hay lotes que exportar"); return; }
   const bytes=buildXlsx(ls);
   const name=`R-Evaluacion_en_entrada_${y||"todos"}_${today()}.xlsx`;
