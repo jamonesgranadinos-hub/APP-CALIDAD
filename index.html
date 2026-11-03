@@ -188,7 +188,7 @@ const LOTES_COLS = ["Lote interno","Fecha entrada","Proveedor","Lote de origen",
 const TEST_COLS = ["Lote interno","Fecha","Nº testigo","Nº pieza","Tipo","Peso (kg)","Clasificación","Tª (ºC)","pH","Grasa","ETG","Observaciones"];
 const YN = [["prodConformes","¿Revisados conformes los productos?"],["docRevisada","¿Se ha revisado toda la documentación?"],["cumpleEspec","¿Documentación y proveedor cumplen las especificaciones?"],["aptoExport","¿Apto para exportación?"]];
 const LSKEY = "appcalidad.v1";
-const APP_VERSION = "3.8 · 03/11/2026";
+const APP_VERSION = "3.9 · 03/11/2026";
 const SINO = ["Productos revisados conformes","Documentación revisada","Cumple especificaciones","Apto exportación"];
 const TABLAS = {
   Lotes:{ cab:[...LOTES_COLS,"ID app"], k:"ID app", ocultas:["ID app"], orden:[["Fecha entrada",1]],
@@ -333,6 +333,7 @@ function render(){
   else if(view.name==="tallasForm") app.innerHTML = vTallasForm();
   else if(view.name==="mover") app.innerHTML = vMover();
   else if(view.name==="ubic") app.innerHTML = vUbic();
+  else if(view.name==="buscar") app.innerHTML = vBuscar();
   else if(view.name==="antForm") app.innerHTML = vAntForm();
   else if(view.name==="mant") app.innerHTML = vMant();
   else if(view.name==="mantForm") app.innerHTML = vMantForm();
@@ -353,6 +354,7 @@ function vHome(){
     ${(()=>{ const hoy=lectDia(today()), n=hoy.length, inc=hoy.filter(l=>l.estado==="INCIDENCIA").length;
       return `<button class="tile on" data-go="temp"><span class="ic">🌡️</span><span class="tt">Temperaturas</span><span class="ds">Temperatura y humedad de cada sala</span>
       <span class="tag ${n===SALAS.length?"ok":"warn"}">Hoy: ${n} de ${SALAS.length} salas</span>${inc?`<span class="tag bad">${inc} incidencia${inc>1?"s":""} hoy</span>`:""}</button>`; })()}
+    <button class="tile on" data-go="buscar"><span class="ic">🔍</span><span class="tt">¿Dónde está un lote?</span><span class="ds">Escribe el lote y mira en qué sala está cada talla</span></button>
     <button class="tile on" data-go="ubic"><span class="ic">📍</span><span class="tt">Ubicación de lotes</span><span class="ds">Qué lotes y tallas hay en cada sala</span></button>
     ${(()=>{ const m=mantDia(today()), p=m.reduce((a,x)=>a+(x.piezas||0),0);
       return `<button class="tile on" data-go="mant"><span class="ic">🧈</span><span class="tt">Manteca</span><span class="ds">Registro diario de piezas enmantecadas</span>
@@ -771,13 +773,40 @@ function saveAnt(){
   const l={id:uid(),anterior:true,createdAt:Date.now(),loteInterno:d.loteInterno.toUpperCase(),fechaEntrada:d.fechaEntrada,obs:d.obs,tallas,movs,testigos:[],deleted:false};
   commit(l); toast("Lote "+l.loteInterno+" añadido"); go({name:"lote",id:l.id});
 }
+function ubicLoteHTML(l){
+  const u=ubicaciones(l), ks=tallasDe(l);
+  if(!ks.length) return `<p class="muted" style="margin:6px 0 0">Sin tallas apuntadas todavía.</p>`;
+  const porSala={}; ks.forEach(k=>{ const c=u[k]?u[k].dest:"_"; (porSala[c]=porSala[c]||[]).push(k); });
+  const orden=SALAS.map(x=>x.c).filter(c=>porSala[c]).concat(porSala._?["_"]:[]);
+  return orden.map(c=>{ const kk=porSala[c], tot=kk.reduce((a,k)=>a+l.tallas[k].n,0), desde=c==="_"?"":[...new Set(kk.map(k=>u[k].fecha))].sort();
+    const g={}; kk.forEach(k=>(g[kTipo(k)]=g[kTipo(k)]||[]).push(`${kTalla(k)} (${fmtN(l.tallas[k].n,0)})`));
+    return `<div class="hist" style="border-left-color:${c==="_"?"var(--warn)":"var(--ok)"};cursor:default">
+      <b style="font-size:21px">📍 ${c==="_"?"Sin ubicar":esc(SALA[c].n)}</b> <span class="muted">· ${fmtN(tot,0)} piezas${desde.length?` · desde ${desde.map(fmtD).join(", ")}`:""}</span>
+      <div style="font-size:18px;margin-top:2px">${Object.keys(g).map(tp=>(tp?`<span class="muted">${esc(tp)}:</span> `:"")+g[tp].join(" · ")).join("<br>")}</div></div>`; }).join("");
+}
+function vBuscar(){
+  const q=normLI(view.q||""), todos=lotesVivos();
+  const res = q ? todos.filter(l=>normLI(l.loteInterno).includes(q)).sort((a,b)=>(normLI(a.loteInterno)===q?-1:0)-(normLI(b.loteInterno)===q?-1:0)||a.loteInterno.localeCompare(b.loteInterno)).slice(0,15) : [];
+  const enMant = q && !res.length ? [...new Set(Object.values(state.mant).filter(x=>!x.deleted&&normLI(x.lote).includes(q)).map(x=>x.lote))] : [];
+  return `<button class="back" data-go="home">← Inicio</button>
+  <h1>¿Dónde está un lote?</h1>
+  <input class="in bignum" id="bq" placeholder="Escribe el lote" value="${esc(view.q||"")}" autocapitalize="characters" list="blotes" autocomplete="off" style="margin-bottom:16px">
+  <datalist id="blotes">${todos.map(l=>`<option value="${esc(l.loteInterno)}">`).join("")}</datalist>
+  ${!q?`<p class="muted">Escribe el número de lote (o parte de él) y verás en qué sala está cada tipo y talla, y desde cuándo.</p>`
+   : res.length ? `<div class="list">${res.map(l=>`<div class="card">
+      <div class="row"><div class="grow"><div class="li" style="font-size:26px;font-weight:700">Lote ${esc(l.loteInterno)}${l.anterior?' <span class="tag">Anterior</span>':""}</div>
+        <div class="meta">${l.fechaEntrada?"Entrada "+fmtD(l.fechaEntrada):""}${l.proveedor?" · "+esc(l.proveedor):""}</div></div>
+        <button class="btn" data-lote="${l.id}">Ver lote →</button></div>
+      <div style="margin-top:10px">${ubicLoteHTML(l)}</div></div>`).join("")}</div>`
+   : `<div class="empty">No hay ningún lote «${esc(view.q)}» en la app.${enMant.length?`<br>Aparece en la manteca como: ${enMant.map(esc).join(", ")}.`:""}<br><br>Si es un lote antiguo, puedes darlo de alta en <b>Ubicación de lotes → Añadir lote anterior</b>.</div>`}`;
+}
 function vUbic(){
   const mapa={};
   lotesVivos().forEach(l=>{ const u=ubicaciones(l); tallasDe(l).forEach(t=>{ const c=u[t]?u[t].dest:"_"; ((mapa[c]=mapa[c]||{})[l.id]=mapa[c][l.id]||{l,ts:[]}).ts.push(t); }); });
   const salas=SALAS.filter(x=>mapa[x.c]).map(x=>x.c).concat(mapa._?["_"]:[]);
   return `<button class="back" data-go="home">← Inicio</button>
   <h1>Ubicación de lotes</h1>
-  <button class="btn pri big" id="nuevoAnt" style="margin-bottom:6px">＋ Añadir lote anterior</button>
+  <div class="row" style="margin-bottom:6px"><button class="btn pri big grow" id="nuevoAnt" style="width:auto">＋ Añadir lote anterior</button><button class="btn" data-go="buscar" style="min-height:84px">🔍 Buscar lote</button></div>
   <p class="muted" style="font-size:16px;margin-top:4px">Para lotes que entraron antes de usar la app: solo se apuntan sus tallas y dónde están.</p>
   ${salas.length?salas.map(c=>{ const ls=Object.values(mapa[c]); const tot=ls.reduce((a,x)=>a+x.ts.reduce((b,t)=>b+x.l.tallas[t].n,0),0);
     return `<h2>${c==="_"?"Sin ubicar todavía":esc(SALA[c].n)} <span class="muted" style="font-size:18px;font-weight:500">· ${fmtN(tot,0)} piezas</span></h2><div class="list">
@@ -925,6 +954,11 @@ function bindView(){
   if(view.name==="home") app.querySelectorAll("[data-avlote]").forEach(b=>b.onclick=()=>go({name:"lote",id:b.dataset.avlote}));
   if(view.name==="ubic"){ app.querySelectorAll("[data-lote]").forEach(b=>b.onclick=()=>go({name:"lote",id:b.dataset.lote}));
     $("#nuevoAnt").onclick=()=>{ draft={loteInterno:"",fechaEntrada:"",obs:"",todas:"",desde:"",grupos:[{tipo:"",n:{},d:{},sala:{}}]}; go({name:"antForm"}); }; }
+  if(view.name==="buscar"){
+    const i=$("#bq"); i.oninput=()=>{ view.q=i.value; const pos=i.selectionStart; render(); const j=$("#bq"); j.focus(); try{ j.setSelectionRange(pos,pos); }catch(e){} };
+    app.querySelectorAll("[data-lote]").forEach(b=>b.onclick=()=>go({name:"lote",id:b.dataset.lote}));
+    if(!view.q) setTimeout(()=>{ const j=$("#bq"); if(j&&document.activeElement===document.body) j.focus(); },50);
+  }
   if(view.name==="antForm"){
     $("#f").onsubmit=e=>e.preventDefault();
     $("#cancel").onclick=()=>go(view.id?{name:"lote",id:view.id}:{name:"ubic"});
