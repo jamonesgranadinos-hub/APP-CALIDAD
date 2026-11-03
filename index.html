@@ -185,16 +185,16 @@ table.t td.num{text-align:right;font-variant-numeric:tabular-nums}
 const RESP_DEF = "CECILIO RODRIGUEZ";
 const TIPOS = ["JAMON SIN PATA FINO", "JAMON SIN PATA SEMIGRASO", "JAMON SIN PATA GRASO", "JAMON SIN PATA DUROC", "JAMON SIN PATA ECOLOGICO", "JAMON SIN PATA CORTE \"V\"", "JAMON CON PATA CORTE \"V\" FINO", "JAMON CON PATA CORTE \"V\" SEMIGRASO", "JAMON CON PATA CORTE \"V\" GRASO", "JAMON CON PATA CORTE \"V\" DUROC", "JAMON CON PATA CORTE \"V\" POLONIA", "JAMON CON PATA CORTE \"V\" DUROC EXTRA", "JAMON CON PATA CORTE \"V\" DUROC EXTRA CAMPO", "JAMON CON PATA CORTE \"V\" ECOLOGICO", "JAMON PIEL Y PATA FINO", "JAMON PIEL Y PATA SEMIGRASO", "JAMON PIEL Y PATA GRASO", "JAMON PIEL Y PATA DUROC", "JAMON PIEL Y PATA DUROC SEMI", "JAMON PIEL Y PATA ECOLOGICO", "PALETA PIEL Y PATA FINA", "PALETA PIEL Y PATA SEMIGRASA", "PALETA PIEL Y PATA GRASA", "PALETA PIEL Y PATA DUROC", "JAMON DE CEBO IBERICO", "JAMON DE BELLOTA IBERICO", "PALETA DE CEBO IBERICA", "PALETA DE BELLOTA IBERICA", "PALETA DE CEBO DE CAMPO IBERICA", "PALETA CON PATA CORTE \"V\" FINA", "PALETA CON PATA CORTE \"V\" SEMIGRASA", "PALETA CON PATA CORTE \"V\" GRASA", "PALETA CON PATA CORTE \"V\" DUROC", "JAMON SPECK SIN PIEL", "JAMON CON PATA CORTE \"V\" NAB DUROC", "LOMO 50% DUROC CON PIEL"];
 const LOTES_COLS = ["Lote interno","Fecha entrada","Proveedor","Lote de origen","Albarán/Factura","DAC","Nº piezas lote","Peso total lote (kg)","Productos revisados conformes","Documentación revisada","Cumple especificaciones","Apto exportación","Destino si no apto","Responsable","Hallazgos"];
-const TEST_COLS = ["Lote interno","Fecha","Nº testigo","Nº pieza","Tipo","Peso (kg)","Tª (ºC)","pH","Grasa","ETG","Observaciones"];
+const TEST_COLS = ["Lote interno","Fecha","Nº testigo","Nº pieza","Tipo","Peso (kg)","Clasificación","Tª (ºC)","pH","Grasa","ETG","Observaciones"];
 const YN = [["prodConformes","¿Revisados conformes los productos?"],["docRevisada","¿Se ha revisado toda la documentación?"],["cumpleEspec","¿Documentación y proveedor cumplen las especificaciones?"],["aptoExport","¿Apto para exportación?"]];
 const LSKEY = "appcalidad.v1";
-const APP_VERSION = "3.5 · 02/11/2026";
+const APP_VERSION = "3.6 · 03/11/2026";
 const SINO = ["Productos revisados conformes","Documentación revisada","Cumple especificaciones","Apto exportación"];
 const TABLAS = {
   Lotes:{ cab:[...LOTES_COLS,"ID app"], k:"ID app", ocultas:["ID app"], orden:[["Fecha entrada",1]],
     fmt:Object.assign(Object.fromEntries(LOTES_COLS.map(c=>[c,"@"])),{"Fecha entrada":"dd/mm/yyyy","Nº piezas lote":"0","Peso total lote (kg)":"#,##0.00"}) },
   Testigos:{ cab:[...TEST_COLS,"ID testigo app","ID lote app"], k:"ID testigo app", ocultas:["ID testigo app","ID lote app"], orden:[["Fecha",1],["Lote interno",1],["Nº testigo",1]],
-    fmt:{"Lote interno":"@","Fecha":"dd/mm/yyyy","Nº testigo":"@","Nº pieza":"@","Tipo":"@","Peso (kg)":"0.00","Tª (ºC)":"0.0","pH":"0.00","ETG":"@","Observaciones":"@"} },
+    fmt:{"Lote interno":"@","Fecha":"dd/mm/yyyy","Nº testigo":"@","Nº pieza":"@","Tipo":"@","Peso (kg)":"0.00","Clasificación":"@","Tª (ºC)":"0.0","pH":"0.00","ETG":"@","Observaciones":"@"} },
   Temperaturas:{ cab:["Fecha","Sala","Tª (ºC)","HR (%)","Horas funcionamiento","Estado","Incidencia","Hora registro","ID app","Orden"], k:"ID app", ocultas:["ID app","Orden"], orden:[["Fecha",1],["Orden",1]],
     fmt:{"Fecha":"dd/mm/yyyy","Sala":"@","Tª (ºC)":"0.0","HR (%)":"0.0","Horas funcionamiento":"0.0","Estado":"@","Incidencia":"@","Hora registro":"@"} }
 };
@@ -219,7 +219,7 @@ const dmy = f => f ? f.split("-").reverse().join("/") : "";
 const loteFila = l => ({"Lote interno":l.loteInterno,"Fecha entrada":dmy(l.fechaEntrada),"Proveedor":l.proveedor,"Lote de origen":l.loteOrigen,"Albarán/Factura":l.albaran,"DAC":l.dac,
   "Nº piezas lote":l.nPiezas,"Peso total lote (kg)":l.pesoTotal,"Productos revisados conformes":l.prodConformes,"Documentación revisada":l.docRevisada,"Cumple especificaciones":l.cumpleEspec,
   "Apto exportación":l.aptoExport,"Destino si no apto":l.destinoNoApto,"Responsable":l.responsable||RESP_DEF,"Hallazgos":l.hallazgos,"ID app":l.id});
-const testFila = (l,t) => ({"Lote interno":l.loteInterno,"Fecha":dmy(t.fecha),"Nº testigo":t.n,"Nº pieza":t.pieza,"Tipo":t.tipo,"Peso (kg)":t.peso,"Tª (ºC)":t.temp,"pH":t.ph,"Grasa":t.grasa,
+const testFila = (l,t) => ({"Lote interno":l.loteInterno,"Fecha":dmy(t.fecha),"Nº testigo":t.n,"Nº pieza":t.pieza,"Tipo":t.tipo,"Peso (kg)":t.peso,"Clasificación":t.clas||"","Tª (ºC)":t.temp,"pH":t.ph,"Grasa":t.grasa,
   "ETG":t.etg,"Observaciones":t.obs,"ID testigo app":t.tid,"ID lote app":l.id});
 const incFila = (x,foto) => ({"Fecha":dmy(x.fecha),"Hora":x.hora,"Sala":x.salaNombre,"Tipo":x.tipo,"Descripción":x.nota,"Foto":foto,"Origen":"Incidencias","ID app":x.id,"Orden":x.orden});
 const lectFila = x => ({"Fecha":dmy(x.fecha),"Sala":x.salaNombre,"Tª (ºC)":x.temp,"HR (%)":x.hr,"Horas funcionamiento":x.horas,"Estado":x.estado,"Incidencia":x.incidencia,"Hora registro":x.hora,"ID app":x.id,"Orden":x.orden});
@@ -596,8 +596,8 @@ function vLote(){
     <div class="stat"><b>${s.ph!=null?fmtN(s.ph,2):"—"}</b><span>pH medio</span></div>
     <div class="stat"><b>${s.temp!=null?fmtN(s.temp,1):"—"}</b><span>Tª media (ºC)</span></div>
   </div>
-  ${ts.length?`<div class="tw"><table class="t"><thead><tr><th>Nº testigo</th><th>Pieza</th><th>Tipo</th><th>Peso</th><th>Tª</th><th>pH</th><th>Grasa</th><th>ETG</th></tr></thead><tbody>
-    ${ts.map(t=>`<tr class="click" data-test="${esc(t.tid)}"><td><b>${esc(t.n)}</b></td><td>${esc(t.pieza)}</td><td>${esc(t.tipo)}</td><td class="num">${fmtN(t.peso,2)}</td><td class="num">${fmtN(t.temp,1)}</td><td class="num">${fmtN(t.ph,2)}</td><td class="num">${t.grasa!=null?fmtN(t.grasa,t.grasa%1?1:0):""}</td><td>${t.etg?`<span class="tag ${t.etg==="SI"?"ok":"bad"}">${t.etg}</span>`:""}</td></tr>`).join("")}
+  ${ts.length?`<div class="tw"><table class="t"><thead><tr><th>Nº testigo</th><th>Pieza</th><th>Tipo</th><th>Peso</th><th>Clas.</th><th>Tª</th><th>pH</th><th>Grasa</th><th>ETG</th></tr></thead><tbody>
+    ${ts.map(t=>`<tr class="click" data-test="${esc(t.tid)}"><td><b>${esc(t.n)}</b></td><td>${esc(t.pieza)}</td><td>${esc(t.tipo)}</td><td class="num">${fmtN(t.peso,2)}</td><td><b>${esc(t.clas||"")}</b></td><td class="num">${fmtN(t.temp,1)}</td><td class="num">${fmtN(t.ph,2)}</td><td class="num">${t.grasa!=null?fmtN(t.grasa,t.grasa%1?1:0):""}</td><td>${t.etg?`<span class="tag ${t.etg==="SI"?"ok":"bad"}">${t.etg}</span>`:""}</td></tr>`).join("")}
   </tbody></table></div><p class="muted" style="font-size:16px">Toca un testigo para corregirlo.</p>`:`<div class="empty">Sin testigos todavía.</div>`}
   ${(()=>{ const ms=Object.values(state.mant).filter(x=>!x.deleted&&(x.loteId===l.id||normLI(x.lote)===normLI(l.loteInterno))).sort((a,b)=>b.fecha.localeCompare(a.fecha));
     return ms.length?`<h2>Manteca dada</h2><div class="card">${ms.map(x=>`<div class="hist"><b>${fmtD(x.fecha)}</b> · Talla ${esc(x.talla)} · ${fmtN(x.piezas,0)} piezas</div>`).join("")}</div>`:""; })()}
@@ -730,7 +730,9 @@ function vTestForm(){
         <select class="in" id="tipo"><option value="">— Elige el producto —</option>${(d.tipo&&!TIPOS.includes(d.tipo)?[d.tipo]:[]).concat(TIPOS).map(t=>`<option value="${esc(t)}"${d.tipo===t?" selected":""}>${esc(t)}</option>`).join("")}</select>
       </div>
       <div class="grid2">
-        <div class="f"><label class="l" for="peso">Peso (kg)</label><input class="in" id="peso" inputmode="decimal" value="${dec(d.peso)}" enterkeyhint="next"><div class="ferr" id="e_peso"></div></div>
+        <div class="f" style="grid-column:1/-1"><label class="l" for="peso">Peso (kg)</label><input class="in" id="peso" inputmode="decimal" value="${dec(d.peso)}" enterkeyhint="next"><div class="ferr" id="e_peso"></div></div>
+        <div class="f" style="grid-column:1/-1"><label class="l">Clasificación por peso</label>
+          <div class="tallas" id="tClas" style="grid-template-columns:repeat(auto-fill,minmax(100px,1fr))">${TALLAS.map(t=>`<button type="button" data-t="${t}" class="${d.clas===t?"on":""}" style="min-height:70px"><b>${t}</b><span>${TALLA_N[t]}</span></button>`).join("")}</div></div>
         <div class="f"><label class="l" for="temp">Tª (ºC)</label><input class="in" id="temp" inputmode="decimal" value="${dec(d.temp)}" enterkeyhint="next"><div class="ferr" id="e_temp"></div></div>
         <div class="f"><label class="l" for="ph">pH</label><input class="in" id="ph" inputmode="decimal" value="${dec(d.ph)}" enterkeyhint="next"><div class="ferr" id="e_ph"></div></div>
         <div class="f"><label class="l" for="grasa">Grasa</label><input class="in" id="grasa" inputmode="decimal" value="${dec(d.grasa)}" enterkeyhint="next"><div class="ferr" id="e_grasa"></div></div>
@@ -899,6 +901,8 @@ function bindView(){
     $("#saveCfg").onclick=()=>{ if(setCfgFromCode($("#cfgCode").value)){ toast("Conectado con Google Sheets"); render(); sync(true); } else toast("El código no es válido"); };
   }
   if(view.name==="testForm"){
+    app.querySelectorAll("#tClas button").forEach(b=>b.onclick=()=>{ draft.clas = draft.clas===b.dataset.t ? "" : b.dataset.t;
+      app.querySelectorAll("#tClas button").forEach(x=>x.classList.toggle("on",x.dataset.t===draft.clas)); });
     $("#cancel").onclick=()=>go({name:"lote",id:view.id});
     $("#saveEnd").onclick=()=>saveTest(false);
     const sn=$("#saveNext"); if(sn) sn.onclick=()=>saveTest(true);
@@ -909,7 +913,7 @@ function bindView(){
 
 function openTest(l, keep){
   const last = ordenTest(l).slice(-1)[0];
-  draft={n:"", fecha: keep?keep.fecha:today(), pieza:"", tipo: keep?keep.tipo:(last?last.tipo:(state.lastTipo||"")), peso:null,temp:null,ph:null,grasa:null, etg: keep?keep.etg:"", obs:""};
+  draft={n:"", fecha: keep?keep.fecha:today(), pieza:"", tipo: keep?keep.tipo:(last?last.tipo:(state.lastTipo||"")), peso:null,clas:"",temp:null,ph:null,grasa:null, etg: keep?keep.etg:"", obs:""};
   go({name:"testForm",id:l.id});
 }
 
@@ -954,7 +958,7 @@ function saveTest(next){
   const r={}; for(const k of ["peso","temp","ph","grasa"]){ const x=numField(k,k==="temp"?{}:{min:0}); if(x.bad) bad=true; else r[k]=x.v; }
   if(bad){ toast("Revisa los campos marcados"); return; }
   Object.assign(d,r);
-  const t={tid:d.tid||uid(),ts:d.ts||Date.now(),n:d.n,fecha:d.fecha,pieza:d.pieza,tipo:d.tipo||"",peso:d.peso,temp:d.temp,ph:d.ph,grasa:d.grasa,etg:d.etg||"",obs:d.obs};
+  const t={tid:d.tid||uid(),ts:d.ts||Date.now(),n:d.n,fecha:d.fecha,pieza:d.pieza,tipo:d.tipo||"",peso:d.peso,clas:d.clas||"",temp:d.temp,ph:d.ph,grasa:d.grasa,etg:d.etg||"",obs:d.obs};
   l.testigos = l.testigos||[];
   const i=l.testigos.findIndex(x=>x.tid===t.tid);
   if(i>=0) l.testigos[i]=t; else l.testigos.push(t);
@@ -995,7 +999,7 @@ function desdeServidor(datos){
       dac:sv(r["DAC"]),nPiezas:nv(r["Nº piezas lote"]),pesoTotal:nv(r["Peso total lote (kg)"]),prodConformes:sv(r["Productos revisados conformes"]),docRevisada:sv(r["Documentación revisada"]),
       cumpleEspec:sv(r["Cumple especificaciones"]),aptoExport:sv(r["Apto exportación"]),destinoNoApto:sv(r["Destino si no apto"]),responsable:sv(r["Responsable"]),hallazgos:sv(r["Hallazgos"]),testigos:[]}; });
   objetos(datos.Testigos).forEach(r=>{ const l=lotes[sv(r["ID lote app"])], tid=sv(r["ID testigo app"]); if(!l||!tid) return;
-    l.testigos.push({tid,n:sv(r["Nº testigo"]),fecha:sv(r["Fecha"]),pieza:sv(r["Nº pieza"]),tipo:sv(r["Tipo"]),peso:nv(r["Peso (kg)"]),temp:nv(r["Tª (ºC)"]),ph:nv(r["pH"]),
+    l.testigos.push({tid,n:sv(r["Nº testigo"]),fecha:sv(r["Fecha"]),pieza:sv(r["Nº pieza"]),tipo:sv(r["Tipo"]),peso:nv(r["Peso (kg)"]),clas:sv(r["Clasificación"]),temp:nv(r["Tª (ºC)"]),ph:nv(r["pH"]),
       grasa:nv(r["Grasa"]),etg:sv(r["ETG"]),obs:sv(r["Observaciones"])}); });
   Object.values(lotes).forEach(l=>{ l.tallas={}; l.movs=[]; });
   objetos(datos.Tallas).forEach(r=>{ const l=lotes[sv(r["ID lote"])], t=sv(r["Talla"]); if(!l||!TALLAS.includes(t)) return;
@@ -1199,10 +1203,10 @@ function buildXlsx(lotes){
 
   const lr = lotes.map(l=>[["s",l.loteInterno],["d",l.fechaEntrada],["s",l.proveedor],["s",l.loteOrigen],["s",l.albaran],["s",l.dac],["n",l.nPiezas,7],["n",l.pesoTotal,4],["s",l.prodConformes],["s",l.docRevisada],["s",l.cumpleEspec],["s",l.aptoExport],["s",l.destinoNoApto],["s",l.responsable||RESP_DEF],["s",l.hallazgos]]);
   const tr = [];
-  lotes.forEach(l=> ordenTest(l).forEach(t=> tr.push([["s",l.loteInterno],["d",t.fecha],["s",String(t.n)],["s",t.pieza],["s",t.tipo],["n",t.peso,3],["n",t.temp,5],["n",t.ph,3],["n",t.grasa,0],["s",t.etg],["s",t.obs]])));
+  lotes.forEach(l=> ordenTest(l).forEach(t=> tr.push([["s",l.loteInterno],["d",t.fecha],["s",String(t.n)],["s",t.pieza],["s",t.tipo],["n",t.peso,3],["s",t.clas||""],["n",t.temp,5],["n",t.ph,3],["n",t.grasa,0],["s",t.etg],["s",t.obs]])));
 
   const s1=sheet(LOTES_COLS,[16,13,24,16,13,14,12,14,13,13,13,12,20,20,40],lr,"rId1");
-  const s2=sheet(TEST_COLS,[16,12,11,11,16,11,10,9,9,8,40],tr,"rId1");
+  const s2=sheet(TEST_COLS,[16,12,11,11,16,11,13,10,9,9,8,40],tr,"rId1");
   const sst=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${ss.length}" uniqueCount="${ss.length}">${ss.map(s=>`<si><t xml:space="preserve">${xe(s)}</t></si>`).join("")}</sst>`;
   const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="4"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/><numFmt numFmtId="165" formatCode="0.00"/><numFmt numFmtId="166" formatCode="#,##0.00"/><numFmt numFmtId="167" formatCode="0.0"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><name val="Calibri"/><family val="2"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="8"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="166" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="167" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="1" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
   const R="http://schemas.openxmlformats.org/officeDocument/2006/relationships";
