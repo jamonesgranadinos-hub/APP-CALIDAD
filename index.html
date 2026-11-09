@@ -188,7 +188,7 @@ const LOTES_COLS = ["Lote interno","Fecha entrada","Proveedor","Lote de origen",
 const TEST_COLS = ["Lote interno","Fecha","Nº testigo","Nº pieza","Tipo","Peso (kg)","Clasificación","Tª (ºC)","pH","Grasa","ETG","Observaciones"];
 const YN = [["prodConformes","¿Revisados conformes los productos?"],["docRevisada","¿Se ha revisado toda la documentación?"],["cumpleEspec","¿Documentación y proveedor cumplen las especificaciones?"],["aptoExport","¿Apto para exportación?"]];
 const LSKEY = "appcalidad.v1";
-const APP_VERSION = "3.9 · 03/11/2026";
+const APP_VERSION = "3.10 · 09/11/2026";
 const SINO = ["Productos revisados conformes","Documentación revisada","Cumple especificaciones","Apto exportación"];
 const TABLAS = {
   Lotes:{ cab:[...LOTES_COLS,"ID app"], k:"ID app", ocultas:["ID app"], orden:[["Fecha entrada",1]],
@@ -392,7 +392,7 @@ function vLectForm(){
       <div class="f"><label class="l" for="ltemp">Temperatura (ºC) <span class="req">*</span></label><input class="in bignum" id="ltemp" inputmode="decimal" value="${dec(d.temp)}" enterkeyhint="next"><div class="ferr" id="e_ltemp"></div></div>
       <div class="f"><label class="l" for="lhr">Humedad relativa (%) <span class="req">*</span></label><input class="in bignum" id="lhr" inputmode="decimal" value="${dec(d.hr)}" enterkeyhint="next"><div class="ferr" id="e_lhr"></div></div>
     </div>
-    ${x.horas?`<div class="f"><label class="l" for="lhoras">Horas de funcionamiento hoy (h)</label><input class="in bignum" id="lhoras" inputmode="decimal" value="${dec(d.horas)}" enterkeyhint="done"><div class="ferr" id="e_lhoras"></div></div>`:""}
+    ${x.horas?`<div class="f"><label class="l" for="lhoras">Horas de funcionamiento (h) <span class="muted" style="font-weight:500">· máximo ${maxHoras(d.fecha)}${maxHoras(d.fecha)===48?" (lunes: incluye el fin de semana)":""}</span></label><input class="in bignum" id="lhoras" inputmode="decimal" value="${dec(d.horas)}" enterkeyhint="done"><div class="ferr" id="e_lhoras"></div></div>`:""}
     <label class="l">Estado de la sala <span class="req">*</span></label>
     <div class="estado"><button type="button" class="ok ${d.estado==="OK"?"on":""}" data-e="OK">✓ Todo correcto</button><button type="button" class="ko ${d.estado==="INCIDENCIA"?"on":""}" data-e="INCIDENCIA">✗ Hay incidencia</button></div>
     <div class="ferr" id="e_estado"></div>
@@ -402,6 +402,8 @@ function vLectForm(){
   </form>
   <div class="bar"><div class="in2"><button class="btn big" id="lSave">Guardar</button><button class="btn pri big" id="lNext">Guardar y siguiente →</button></div></div>`;
 }
+// los lunes se apunta también el fin de semana: hasta 48 h; el resto de días, hasta 24 h
+function maxHoras(f){ const [y,m,d]=f.split("-").map(Number); return new Date(y,m-1,d).getDay()===1 ? 48 : 24; }
 function openLect(f,c){
   const id=lectId(f,c), l=state.lect[id];
   draft = l&&!l.deleted ? Object.assign({},l) : {id,fecha:f,sala:c,temp:null,hr:null,horas:null,estado:"",incidencia:""};
@@ -419,7 +421,8 @@ function saveLect(next){
   if(!t.bad&&t.v==null){ $("#ltemp").classList.add("err"); $("#e_ltemp").textContent="Escribe la temperatura"; bad=true; }
   if(!h.bad&&h.v==null){ $("#lhr").classList.add("err"); $("#e_lhr").textContent="Escribe la humedad"; bad=true; }
   else if(!h.bad&&h.v>100){ $("#lhr").classList.add("err"); $("#e_lhr").textContent="La humedad va de 0 a 100"; bad=true; }
-  if(!hs.bad&&hs.v!=null&&hs.v>24){ $("#lhoras").classList.add("err"); $("#e_lhoras").textContent="Máximo 24 horas"; bad=true; }
+  const maxH=maxHoras(d.fecha);
+  if(!hs.bad&&hs.v!=null&&hs.v>maxH){ $("#lhoras").classList.add("err"); $("#e_lhoras").textContent=`Máximo ${maxH} horas${maxH===48?" (lunes)":""}`; bad=true; }
   $("#e_estado").textContent=""; if(!d.estado){ $("#e_estado").textContent="Pulsa «Todo correcto» o «Hay incidencia»"; bad=true; }
   const inc=$("#linc").value.trim(); $("#e_linc").textContent="";
   if(d.estado==="INCIDENCIA"&&!inc){ $("#linc").classList.add("err"); $("#e_linc").textContent="Describe brevemente la incidencia"; bad=true; }
