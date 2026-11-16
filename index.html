@@ -195,7 +195,7 @@ const LOTES_COLS = ["Lote interno","Fecha entrada","Proveedor","Lote de origen",
 const TEST_COLS = ["Lote interno","Fecha","Nº testigo","Nº pieza","Tipo","Peso (kg)","Clasificación","Tª (ºC)","pH","Grasa","ETG","Observaciones"];
 const YN = [["prodConformes","¿Revisados conformes los productos?"],["docRevisada","¿Se ha revisado toda la documentación?"],["cumpleEspec","¿Documentación y proveedor cumplen las especificaciones?"],["aptoExport","¿Apto para exportación?"]];
 const LSKEY = "appcalidad.v1";
-const APP_VERSION = "3.11 · 16/11/2026";
+const APP_VERSION = "3.12 · 16/11/2026";
 const SINO = ["Productos revisados conformes","Documentación revisada","Cumple especificaciones","Apto exportación"];
 const TABLAS = {
   Lotes:{ cab:[...LOTES_COLS,"ID app"], k:"ID app", ocultas:["ID app"], orden:[["Fecha entrada",1]],
@@ -857,9 +857,8 @@ async function cargarHistorico(desde){
   if(!cfg||!navigator.onLine||dias<=60) return;
   const key=desde; if(trazExtra.key===key&&trazExtra.estado) return;
   trazExtra={key,lects:[],incs:[],estado:"cargando"}; if(view.name==="traz") render();
-  try{ const res=await call("POST",{action:"sync",put:[],upd:[],del:[],leer:[{t:"Temperaturas",colFecha:"Fecha",dias},{t:"Incidencias",colFecha:"Fecha",dias}]});
-    const d=desdeServidor(res.datos||{});
-    trazExtra.lects=d.lects; trazExtra.incs=objetos((res.datos||{}).Incidencias).map(r=>({fecha:sv(r["Fecha"]),sala:sv(r["Sala"]),tipo:sv(r["Tipo"]),nota:sv(r["Descripción"]),origen:sv(r["Origen"])}));
+  try{ const res=await call("POST",{action:"sync",put:[],upd:[],del:[],leer:[{t:"Incidencias",colFecha:"Fecha",dias}]});
+    trazExtra.lects=[]; trazExtra.incs=objetos((res.datos||{}).Incidencias).map(r=>({fecha:sv(r["Fecha"]),sala:sv(r["Sala"]),tipo:sv(r["Tipo"]),nota:sv(r["Descripción"]),origen:sv(r["Origen"])}));
     trazExtra.estado="ok"; }catch(e){ trazExtra.estado="error"; }
   if(view.name==="traz") render();
 }
@@ -877,7 +876,7 @@ function condiciones(sala,desde,hasta){
   const incs=[]; ls.filter(x=>x.estado==="INCIDENCIA").forEach(x=>incs.push({fecha:x.fecha,txt:"Ronda de temperaturas: "+x.incidencia}));
   const vistos=new Set(incs.map(i=>i.fecha+i.txt));
   Object.values(state.inc).filter(x=>!x.deleted&&x.sala===sala&&x.fecha>=desde&&x.fecha<=fin).forEach(x=>{ const t=x.tipo+": "+x.nota; if(!vistos.has(x.fecha+t)){ vistos.add(x.fecha+t); incs.push({fecha:x.fecha,txt:t}); } });
-  trazExtra.incs.filter(x=>x.origen!=="Ronda de temperaturas"&&x.sala===nombre&&x.fecha>=desde&&x.fecha<=fin).forEach(x=>{ const t=x.tipo+": "+x.nota; if(!vistos.has(x.fecha+t)){ vistos.add(x.fecha+t); incs.push({fecha:x.fecha,txt:t}); } });
+  trazExtra.incs.filter(x=>x.sala===nombre&&x.fecha>=desde&&x.fecha<=fin).forEach(x=>{ const t=x.tipo+": "+x.nota; if(!vistos.has(x.fecha+t)){ vistos.add(x.fecha+t); incs.push({fecha:x.fecha,txt:t}); } });
   const T=ls.map(x=>x.temp).filter(v=>v!=null), H=ls.map(x=>x.hr).filter(v=>v!=null);
   const mm=a=>a.length?{min:Math.min(...a),max:Math.max(...a),med:a.reduce((p,q)=>p+q,0)/a.length}:null;
   return {n:ls.length,t:mm(T),h:mm(H),incs:incs.sort((a,b)=>a.fecha.localeCompare(b.fecha))};
@@ -915,12 +914,12 @@ function vTraz(){
     ${test.obs?`<div style="grid-column:1/-1"><span>Observaciones</span><b>${esc(test.obs)}</b></div>`:""}</div>`:""}
   ${tallasL.length>1?`<h2>¿Qué talla pone la etiqueta?</h2><div class="chips" id="trazTalla"><button type="button" data-t="" class="${sel?"":"on"}">Todas</button>${tallasL.map(t=>`<button type="button" data-t="${t}" class="${sel===t?"on":""}">${t}</button>`).join("")}</div>`:""}
   <h2>Recorrido${sel?` de la talla ${sel}`:""}</h2>
-  ${trazExtra.estado==="cargando"?`<p class="muted">Cargando temperaturas antiguas desde la hoja…</p>`:""}
+  ${trazExtra.estado==="cargando"?`<p class="muted">Cargando incidencias antiguas desde la hoja…</p>`:""}
   ${tramos.length?tramos.map(t=>{ const c=condiciones(t.dest,t.desde,t.hasta), dias=diasEntre(t.desde,t.hasta||today());
     return `<div class="tramo" style="border-left-color:${c.incs.length?"var(--bad)":"var(--ok)"}">
       <div class="tt2">📍 ${esc(SALA[t.dest]?SALA[t.dest].n:t.dest)}</div>
       <div class="muted">${fmtD(t.desde)} → ${t.hasta?fmtD(t.hasta):"hoy (sigue aquí)"} · ${dias} día${dias===1?"":"s"}${!sel||keys.length>1?` · ${esc(listaK(t.ks))}`:""}</div>
-      <div class="cond">${c.n?`🌡️ ${fmtN(c.t.min,1)}–${fmtN(c.t.max,1)} ºC (media ${fmtN(c.t.med,1)}) · 💧 ${fmtN(c.h.min,0)}–${fmtN(c.h.max,0)} % · ${c.n} lectura${c.n>1?"s":""}`:`<span class="muted">Sin lecturas de temperatura${trazExtra.estado==="error"?" (no se pudieron cargar las antiguas)":""}</span>`}</div>
+      ${c.incs.length?"":`<div class="cond muted">✓ Sin incidencias${trazExtra.estado==="error"?" registradas en el móvil (no se pudieron cargar las antiguas)":""}</div>`}
       ${c.incs.map(i=>`<div class="cond" style="color:var(--bad)">⚠️ ${fmtD(i.fecha)} · ${esc(i.txt)}</div>`).join("")}
     </div>`; }).join("") : `<p class="muted">No hay movimientos registrados para este lote${sel?" en esta talla":""}.</p>`}
   ${ms.length?`<h2>Manteca</h2><div class="card">${ms.map(x=>`<div class="hist" style="cursor:default"><b>${fmtD(x.fecha)}</b> · Talla ${esc(x.talla)}${x.tipo?" · "+esc(x.tipo):""} · ${fmtN(x.piezas,0)} piezas</div>`).join("")}</div>`:""}`;
