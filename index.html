@@ -191,15 +191,15 @@ table.t td.num{text-align:right;font-variant-numeric:tabular-nums}
 /* ============ Constantes ============ */
 const RESP_DEF = "CECILIO RODRIGUEZ";
 const TIPOS = ["JAMON SIN PATA FINO", "JAMON SIN PATA SEMIGRASO", "JAMON SIN PATA GRASO", "JAMON SIN PATA DUROC", "JAMON SIN PATA ECOLOGICO", "JAMON SIN PATA CORTE \"V\"", "JAMON CON PATA CORTE \"V\" FINO", "JAMON CON PATA CORTE \"V\" SEMIGRASO", "JAMON CON PATA CORTE \"V\" GRASO", "JAMON CON PATA CORTE \"V\" DUROC", "JAMON CON PATA CORTE \"V\" POLONIA", "JAMON CON PATA CORTE \"V\" DUROC EXTRA", "JAMON CON PATA CORTE \"V\" DUROC EXTRA CAMPO", "JAMON CON PATA CORTE \"V\" ECOLOGICO", "JAMON PIEL Y PATA FINO", "JAMON PIEL Y PATA SEMIGRASO", "JAMON PIEL Y PATA GRASO", "JAMON PIEL Y PATA DUROC", "JAMON PIEL Y PATA DUROC SEMI", "JAMON PIEL Y PATA ECOLOGICO", "PALETA PIEL Y PATA FINA", "PALETA PIEL Y PATA SEMIGRASA", "PALETA PIEL Y PATA GRASA", "PALETA PIEL Y PATA DUROC", "JAMON DE CEBO IBERICO", "JAMON DE BELLOTA IBERICO", "PALETA DE CEBO IBERICA", "PALETA DE BELLOTA IBERICA", "PALETA DE CEBO DE CAMPO IBERICA", "PALETA CON PATA CORTE \"V\" FINA", "PALETA CON PATA CORTE \"V\" SEMIGRASA", "PALETA CON PATA CORTE \"V\" GRASA", "PALETA CON PATA CORTE \"V\" DUROC", "JAMON SPECK SIN PIEL", "JAMON CON PATA CORTE \"V\" NAB DUROC", "LOMO 50% DUROC CON PIEL"];
-const LOTES_COLS = ["Lote interno","Fecha entrada","Proveedor","Lote de origen","Albarán/Factura","DAC","Nº piezas lote","Peso total lote (kg)","Productos revisados conformes","Documentación revisada","Cumple especificaciones","Apto exportación","Destino si no apto","Responsable","Hallazgos"];
+const LOTES_COLS = ["Lote interno","Fecha entrada","Proveedor","Lote de origen","Albarán/Factura","DAC","Nº piezas lote","Peso total lote (kg)","Lote de sal","Sal utilizada (kg)","Productos revisados conformes","Documentación revisada","Cumple especificaciones","Apto exportación","Destino si no apto","Responsable","Hallazgos"];
 const TEST_COLS = ["Lote interno","Fecha","Nº testigo","Nº pieza","Tipo","Peso (kg)","Clasificación","Tª (ºC)","pH","Grasa","ETG","Observaciones"];
 const YN = [["prodConformes","¿Revisados conformes los productos?"],["docRevisada","¿Se ha revisado toda la documentación?"],["cumpleEspec","¿Documentación y proveedor cumplen las especificaciones?"],["aptoExport","¿Apto para exportación?"]];
 const LSKEY = "appcalidad.v1";
-const APP_VERSION = "3.12 · 16/11/2026";
+const APP_VERSION = "3.13 · 17/11/2026";
 const SINO = ["Productos revisados conformes","Documentación revisada","Cumple especificaciones","Apto exportación"];
 const TABLAS = {
   Lotes:{ cab:[...LOTES_COLS,"ID app"], k:"ID app", ocultas:["ID app"], orden:[["Fecha entrada",1]],
-    fmt:Object.assign(Object.fromEntries(LOTES_COLS.map(c=>[c,"@"])),{"Fecha entrada":"dd/mm/yyyy","Nº piezas lote":"0","Peso total lote (kg)":"#,##0.00"}) },
+    fmt:Object.assign(Object.fromEntries(LOTES_COLS.map(c=>[c,"@"])),{"Fecha entrada":"dd/mm/yyyy","Nº piezas lote":"0","Peso total lote (kg)":"#,##0.00","Sal utilizada (kg)":"#,##0.00"}) },
   Testigos:{ cab:[...TEST_COLS,"ID testigo app","ID lote app"], k:"ID testigo app", ocultas:["ID testigo app","ID lote app"], orden:[["Fecha",1],["Lote interno",1],["Nº testigo",1]],
     fmt:{"Lote interno":"@","Fecha":"dd/mm/yyyy","Nº testigo":"@","Nº pieza":"@","Tipo":"@","Peso (kg)":"0.00","Clasificación":"@","Tª (ºC)":"0.0","pH":"0.00","ETG":"@","Observaciones":"@"} },
   Temperaturas:{ cab:["Fecha","Sala","Tª (ºC)","HR (%)","Horas funcionamiento","Estado","Incidencia","Hora registro","ID app","Orden"], k:"ID app", ocultas:["ID app","Orden"], orden:[["Fecha",1],["Orden",1]],
@@ -224,9 +224,11 @@ TABLAS.Manteca={ cab:["Fecha","Lote","Tipo","Talla","Nº piezas","Hora registro"
 const mantFila = x => ({"Fecha":dmy(x.fecha),"Lote":x.lote,"Tipo":x.tipo||"","Talla":x.talla,"Nº piezas":x.piezas,"Hora registro":x.hora,"ID app":x.id,"ID lote":x.loteId||""});
 TABLAS.Incidencias={ cab:["Fecha","Hora","Sala","Tipo","Descripción","Foto","Origen","ID app","Orden"], k:"ID app", ocultas:["ID app","Orden"], orden:[["Fecha",1],["Hora",1]],
   fmt:{"Fecha":"dd/mm/yyyy","Hora":"@","Sala":"@","Tipo":"@","Descripción":"@","Foto":"@","Origen":"@"} };
+// Sal utilizada = piezas totales del lote / 64 × 700 kg
+const kgSal = n => (n==null||n==="") ? null : Math.round(n/64*700*100)/100;
 const dmy = f => f ? f.split("-").reverse().join("/") : "";
 const loteFila = l => ({"Lote interno":l.loteInterno,"Fecha entrada":dmy(l.fechaEntrada),"Proveedor":l.proveedor,"Lote de origen":l.loteOrigen,"Albarán/Factura":l.albaran,"DAC":l.dac,
-  "Nº piezas lote":l.nPiezas,"Peso total lote (kg)":l.pesoTotal,"Productos revisados conformes":l.prodConformes,"Documentación revisada":l.docRevisada,"Cumple especificaciones":l.cumpleEspec,
+  "Nº piezas lote":l.nPiezas,"Peso total lote (kg)":l.pesoTotal,"Lote de sal":l.loteSal||"","Sal utilizada (kg)":kgSal(l.nPiezas),"Productos revisados conformes":l.prodConformes,"Documentación revisada":l.docRevisada,"Cumple especificaciones":l.cumpleEspec,
   "Apto exportación":l.aptoExport,"Destino si no apto":l.destinoNoApto,"Responsable":l.responsable||RESP_DEF,"Hallazgos":l.hallazgos,"ID app":l.id});
 const testFila = (l,t) => ({"Lote interno":l.loteInterno,"Fecha":dmy(t.fecha),"Nº testigo":t.n,"Nº pieza":t.pieza,"Tipo":t.tipo,"Peso (kg)":t.peso,"Clasificación":t.clas||"","Tª (ºC)":t.temp,"pH":t.ph,"Grasa":t.grasa,
   "ETG":t.etg,"Observaciones":t.obs,"ID testigo app":t.tid,"ID lote app":l.id});
@@ -615,6 +617,7 @@ function vLote(){
     <div><span>Albarán/Factura</span><b>${esc(l.albaran)||"—"}</b></div>
     <div><span>DAC</span><b>${esc(l.dac)||"—"}</b></div>
     <div><span>Nº piezas · Peso total</span><b>${l.nPiezas!=null?fmtN(l.nPiezas,0):"—"} · ${l.pesoTotal!=null?fmtN(l.pesoTotal,2)+" kg":"—"}</b></div>
+    <div><span>Lote de sal · Sal utilizada</span><b>${esc(l.loteSal)||"—"} · ${l.nPiezas!=null?fmtN(kgSal(l.nPiezas),2)+" kg":"—"}</b></div>
   </div>
   ${vTallasLote(l)}
   <h2>Testigos</h2>
@@ -981,6 +984,14 @@ function vLoteForm(){
         <div class="f"><label class="l" for="pesoTotal">Peso total lote (kg)</label><input class="in" id="pesoTotal" inputmode="decimal" value="${d.pesoTotal!=null?String(d.pesoTotal).replace(".",","):""}" enterkeyhint="next"><div class="ferr" id="e_pesoTotal"></div></div>
       </div>
     </div>
+    <h2>Sal</h2>
+    <div class="card">
+      <div class="grid2">
+        <div class="f"><label class="l" for="loteSal">Lote de la sal</label><input class="in" id="loteSal" value="${esc(d.loteSal||"")}" autocapitalize="characters" enterkeyhint="next"></div>
+        <div class="f"><label class="l">Sal utilizada (kg)</label><div id="kgSalTxt" style="display:flex;align-items:center;min-height:64px;padding:10px 16px;border-radius:12px;border:2px dashed var(--line);background:var(--bg);font-size:26px;font-weight:700">${d.nPiezas!=null?fmtN(kgSal(d.nPiezas),2):"—"}</div></div>
+      </div>
+      <p class="muted" style="margin:0;font-size:16px">Se calcula sola: piezas del lote ÷ 64 × 700 kg.</p>
+    </div>
     <h2>Valoración final <span class="muted" style="font-size:18px;font-weight:500">(puedes completarla al terminar los testigos)</span></h2>
     <div class="card">
       ${YN.map(([k,q])=>`<div class="yn"><div class="q">${q}</div>${seg(k)}</div>`).join("")}
@@ -1066,6 +1077,7 @@ function bindView(){
     $("#f").onsubmit=e=>e.preventDefault();
   }
   if(view.name==="loteForm"){
+    const np=$("#nPiezas"); if(np) np.addEventListener("input",()=>{ const v=parseNum(np.value); $("#kgSalTxt").textContent = (v!=null&&!Number.isNaN(v)) ? fmtN(kgSal(v),2) : "—"; });
     $("#cancel").onclick=()=>go(view.id?{name:"lote",id:view.id}:{name:"entrada"});
     $("#save").onclick=saveLote;
     const del=$("#delLote"); if(del) del.onclick=async()=>{ const l=state.lotes[view.id]; if(await ask(`¿Borrar el lote ${l.loteInterno} y sus ${(l.testigos||[]).length} testigos?`,"Borrar")){ const c=JSON.parse(JSON.stringify(l)); c.deleted=true; commit(c); toast("Lote borrado"); go({name:"entrada"}); } };
@@ -1253,7 +1265,7 @@ function saveLote(){
   const np=numField("nPiezas",{int:true,min:0}), pt=numField("pesoTotal",{min:0});
   if(np.bad||pt.bad) bad=true;
   if(bad){ toast("Revisa los campos marcados"); const f=document.querySelector(".err"); f&&f.scrollIntoView({block:"center"}); return; }
-  d.nPiezas=np.v; d.pesoTotal=pt.v;
+  d.nPiezas=np.v; d.pesoTotal=pt.v; d.loteSal=$("#loteSal").value.trim().toUpperCase(); d.kgSal=kgSal(np.v);
   let lote;
   if(view.id){ lote=Object.assign(JSON.parse(JSON.stringify(state.lotes[view.id])), d); }
   else { lote=Object.assign({id:uid(), createdAt:Date.now(), testigos:[], deleted:false}, d); }
@@ -1313,7 +1325,7 @@ function desdeServidor(datos){
   const lotes={};
   objetos(datos.Lotes).forEach(r=>{ const id=sv(r["ID app"]); if(!id) return;
     lotes[id]={id,loteInterno:sv(r["Lote interno"]),fechaEntrada:sv(r["Fecha entrada"]),proveedor:sv(r["Proveedor"]),loteOrigen:sv(r["Lote de origen"]),albaran:sv(r["Albarán/Factura"]),
-      dac:sv(r["DAC"]),nPiezas:nv(r["Nº piezas lote"]),pesoTotal:nv(r["Peso total lote (kg)"]),prodConformes:sv(r["Productos revisados conformes"]),docRevisada:sv(r["Documentación revisada"]),
+      dac:sv(r["DAC"]),nPiezas:nv(r["Nº piezas lote"]),pesoTotal:nv(r["Peso total lote (kg)"]),loteSal:sv(r["Lote de sal"]),prodConformes:sv(r["Productos revisados conformes"]),docRevisada:sv(r["Documentación revisada"]),
       cumpleEspec:sv(r["Cumple especificaciones"]),aptoExport:sv(r["Apto exportación"]),destinoNoApto:sv(r["Destino si no apto"]),responsable:sv(r["Responsable"]),hallazgos:sv(r["Hallazgos"]),testigos:[]}; });
   objetos(datos.Testigos).forEach(r=>{ const l=lotes[sv(r["ID lote app"])], tid=sv(r["ID testigo app"]); if(!l||!tid) return;
     l.testigos.push({tid,n:sv(r["Nº testigo"]),fecha:sv(r["Fecha"]),pieza:sv(r["Nº pieza"]),tipo:sv(r["Tipo"]),peso:nv(r["Peso (kg)"]),clas:sv(r["Clasificación"]),temp:nv(r["Tª (ºC)"]),ph:nv(r["pH"]),
@@ -1522,11 +1534,11 @@ function buildXlsx(lotes){
   const table=(id,name,cols,nrows)=>{ const ref=`A1:${colL(cols.length-1)}${Math.max(nrows,1)+1}`;
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="${id}" name="${name}" displayName="${name}" ref="${ref}" totalsRowShown="0"><autoFilter ref="${ref}"/><tableColumns count="${cols.length}">${cols.map((c,i)=>`<tableColumn id="${i+1}" name="${xe(c)}"/>`).join("")}</tableColumns><tableStyleInfo name="TableStyleMedium2" showFirstColumn="0" showLastColumn="0" showRowStripes="1" showColumnStripes="0"/></table>`; };
 
-  const lr = lotes.map(l=>[["s",l.loteInterno],["d",l.fechaEntrada],["s",l.proveedor],["s",l.loteOrigen],["s",l.albaran],["s",l.dac],["n",l.nPiezas,7],["n",l.pesoTotal,4],["s",l.prodConformes],["s",l.docRevisada],["s",l.cumpleEspec],["s",l.aptoExport],["s",l.destinoNoApto],["s",l.responsable||RESP_DEF],["s",l.hallazgos]]);
+  const lr = lotes.map(l=>[["s",l.loteInterno],["d",l.fechaEntrada],["s",l.proveedor],["s",l.loteOrigen],["s",l.albaran],["s",l.dac],["n",l.nPiezas,7],["n",l.pesoTotal,4],["s",l.loteSal||""],["n",kgSal(l.nPiezas),4],["s",l.prodConformes],["s",l.docRevisada],["s",l.cumpleEspec],["s",l.aptoExport],["s",l.destinoNoApto],["s",l.responsable||RESP_DEF],["s",l.hallazgos]]);
   const tr = [];
   lotes.forEach(l=> ordenTest(l).forEach(t=> tr.push([["s",l.loteInterno],["d",t.fecha],["s",String(t.n)],["s",t.pieza],["s",t.tipo],["n",t.peso,3],["s",t.clas||""],["n",t.temp,5],["n",t.ph,3],["n",t.grasa,0],["s",t.etg],["s",t.obs]])));
 
-  const s1=sheet(LOTES_COLS,[16,13,24,16,13,14,12,14,13,13,13,12,20,20,40],lr,"rId1");
+  const s1=sheet(LOTES_COLS,[16,13,24,16,13,14,12,14,14,14,13,13,13,12,20,20,40],lr,"rId1");
   const s2=sheet(TEST_COLS,[16,12,11,11,16,11,13,10,9,9,8,40],tr,"rId1");
   const sst=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${ss.length}" uniqueCount="${ss.length}">${ss.map(s=>`<si><t xml:space="preserve">${xe(s)}</t></si>`).join("")}</sst>`;
   const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="4"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/><numFmt numFmtId="165" formatCode="0.00"/><numFmt numFmtId="166" formatCode="#,##0.00"/><numFmt numFmtId="167" formatCode="0.0"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><name val="Calibri"/><family val="2"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="8"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="166" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="167" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="1" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
