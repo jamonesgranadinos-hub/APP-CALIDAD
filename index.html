@@ -4,37 +4,51 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>APP CALIDAD · Jamones Granadinos</title>
-<meta name="theme-color" content="#7A1F2B">
+<meta name="theme-color" content="#2E2A80">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Calidad">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preload" href="logo.png" as="image">
+
 <style>
+/* Tipografías corporativas (las mismas que la app de RRHH), guardadas en la app para que se vean sin conexión */
+@font-face{font-family:"Atkinson Hyperlegible";src:url(fuentes/atkinson-400.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Atkinson Hyperlegible";src:url(fuentes/atkinson-700.woff2) format("woff2");font-weight:700;font-display:swap}
+@font-face{font-family:"Bricolage Grotesque";src:url(fuentes/bricolage.woff2) format("woff2");font-weight:200 800;font-display:swap}
 :root{
-  --bg:#F5F0E8; --card:#FFFDF9; --ink:#2A1A14; --muted:#7A6A60; --line:#E3D9CC;
-  --brand:#7A1F2B; --brand-d:#5E1520; --brand-l:#F3E3E1;
-  --ok:#2E7D4F; --ok-l:#E2F2E7; --bad:#B3261E; --bad-l:#FBE4E2; --warn:#A86500; --warn-l:#FFF1D6;
+  /* Colores corporativos de Jamones Granadinos Baza (los mismos que la app de RRHH) */
+  --marca-rojo:#E30A1B; --marca-azul:#2E2A80;
+  --bg:#F4F5F9; --card:#FFFFFF; --ink:#1B1A33; --muted:#5D5C72; --line:#D7D8E3;
+  --brand:#2E2A80; --brand-d:#1E1B5C; --brand-l:#E4E3F3;
+  --ok:#2E7D4F; --ok-l:#E2F2E7; --bad:#B8101D; --bad-l:#FBE1E3; --warn:#8A5A00; --warn-l:#F8EBCB;
+  --display:"Bricolage Grotesque", system-ui, sans-serif;
+  --texto:"Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --r:16px;
 }
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:20px;line-height:1.35;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--texto);font-size:20px;line-height:1.35;-webkit-tap-highlight-color:transparent}
 button,input,textarea,select{font:inherit;color:inherit}
-header.top{position:sticky;top:0;z-index:5;background:var(--brand);color:#fff;padding:calc(14px + env(safe-area-inset-top)) 20px 14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-header.top .t{font-weight:700;font-size:24px;letter-spacing:.02em}
-header.top .s{font-size:16px;opacity:.85}
-#sync{margin-left:auto;cursor:pointer;border:0;font-size:16px;font-weight:600;padding:8px 14px;border-radius:999px;background:rgba(255,255,255,.15);white-space:nowrap}
+header.top{position:sticky;top:0;z-index:5;background:#fff;color:var(--marca-azul);border-bottom:4px solid var(--marca-rojo);box-shadow:inset 0 -7px 0 -4px var(--marca-azul);padding:calc(10px + env(safe-area-inset-top)) 18px 13px;display:flex;align-items:center;gap:10px;flex-wrap:nowrap}
+header.top .marca{flex:1;min-width:0;display:flex;align-items:center;gap:12px;font-family:var(--display);font-weight:700;font-size:21px;line-height:1.15;color:var(--marca-azul);cursor:pointer}
+header.top .marca img{height:46px;width:auto;display:block;flex:none}
+header.top .marca span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+header.top .marca small{display:block;font-family:var(--texto);font-weight:400;font-size:14px;color:var(--muted)}
+@media (max-width:640px){header.top{padding-left:12px;padding-right:12px} header.top .marca img{height:36px} header.top .marca{font-size:17px;gap:8px} header.top .marca small{font-size:11.5px} #sync{font-size:13px;padding:7px 10px;max-width:44vw;overflow:hidden;text-overflow:ellipsis} #gear{width:42px;height:42px;font-size:21px;flex:none}}
+#sync{margin-left:auto;flex:none;cursor:pointer;border:0;font-size:15px;font-weight:700;padding:8px 14px;border-radius:999px;background:var(--bg);color:var(--muted);white-space:nowrap}
 #sync.ok{background:#E2F2E7;color:var(--ok)}
 #sync.pend{background:var(--warn-l);color:var(--warn)}
-#sync.off{background:#fff;color:var(--muted)}
+#sync.off{background:var(--bg);color:var(--muted)}
 #sync.bad{background:var(--bad-l);color:var(--bad)}
-#gear{background:rgba(255,255,255,.15);border:0;color:#fff;font-size:26px;width:52px;height:52px;border-radius:50%;cursor:pointer}
+#gear{background:#fff;border:1.5px solid var(--marca-azul);color:var(--marca-azul);font-size:24px;width:48px;height:48px;border-radius:50%;cursor:pointer}
 textarea.code{font-family:ui-monospace,monospace;font-size:16px;min-height:110px}
 ol.steps{padding-left:24px;margin:8px 0}ol.steps li{margin-bottom:6px}
 main{max-width:980px;margin:0 auto;padding:20px 18px 40px}
-h1{font-size:32px;margin:6px 0 18px}
-h2{font-size:24px;margin:26px 0 12px}
+h1{font-family:var(--display);font-weight:800;font-size:32px;letter-spacing:-.01em;line-height:1.15;margin:6px 0 18px;color:var(--ink)}
+h2{font-family:var(--display);font-weight:700;font-size:24px;margin:26px 0 12px}
+.tile .tt,.lote .li,.ntest b,.stat b,.sala .sn,.tramo .tt2,.daynav .d b{font-family:var(--display)}
 .muted{color:var(--muted)}
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
 .tile{display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-height:170px;padding:24px;border-radius:22px;border:2px solid var(--line);background:var(--card);text-align:left;cursor:pointer}
@@ -109,7 +123,7 @@ table.t td.num{text-align:right;font-variant-numeric:tabular-nums}
 .bar{position:sticky;bottom:0;margin:22px -18px 0;background:var(--card);border-top:2px solid var(--line);padding:12px 18px calc(12px + env(safe-area-inset-bottom));z-index:4}
 .bar .in2{max-width:980px;margin:0 auto;display:flex;gap:12px}
 .bar .in2 .btn{flex:1}
-#modal{position:fixed;inset:0;background:rgba(42,26,20,.5);display:none;align-items:center;justify-content:center;z-index:20;padding:20px}
+#modal{position:fixed;inset:0;background:rgba(27,26,51,.5);display:none;align-items:center;justify-content:center;z-index:20;padding:20px}
 #modal.show{display:flex}
 #modal .box{background:var(--card);border-radius:20px;padding:26px;max-width:520px;width:100%}
 #modal .box p{font-size:22px;margin:0 0 22px}
@@ -179,7 +193,7 @@ table.t td.num{text-align:right;font-variant-numeric:tabular-nums}
 </head>
 <body>
 <header class="top">
-  <div><div class="t">APP CALIDAD</div><div class="s">Jamones Granadinos</div></div>
+  <div class="marca" id="marca"><img src="logo.png" alt="Jamones Granadinos Baza"><span>Calidad<small>Jamones Granadinos</small></span></div>
   <button id="sync" class="off">…</button><button id="gear" aria-label="Ajustes">⚙</button>
 </header>
 <main id="app"></main>
@@ -195,7 +209,7 @@ const LOTES_COLS = ["Lote interno","Fecha entrada","Proveedor","Lote de origen",
 const TEST_COLS = ["Lote interno","Fecha","Nº testigo","Nº pieza","Tipo","Peso (kg)","Clasificación","Tª (ºC)","pH","Grasa","ETG","Observaciones"];
 const YN = [["prodConformes","¿Revisados conformes los productos?"],["docRevisada","¿Se ha revisado toda la documentación?"],["cumpleEspec","¿Documentación y proveedor cumplen las especificaciones?"],["aptoExport","¿Apto para exportación?"]];
 const LSKEY = "appcalidad.v1";
-const APP_VERSION = "3.13 · 17/11/2026";
+const APP_VERSION = "3.14 · 25/11/2026";
 const SINO = ["Productos revisados conformes","Documentación revisada","Cumple especificaciones","Apto exportación"];
 const TABLAS = {
   Lotes:{ cab:[...LOTES_COLS,"ID app"], k:"ID app", ocultas:["ID app"], orden:[["Fecha entrada",1]],
@@ -1433,13 +1447,13 @@ function updateSync(){
   const el=$("#sync"); if(!el) return; const n=pendCount(), pl=n>1?"s":"";
   let cls="off", txt;
   if(!cfg){ cls="bad"; txt="⚙ Sin configurar"; }
-  else if(!navigator.onLine){ cls="pend"; txt = n? `Sin conexión · ${n} pendiente${pl}` : "Sin conexión · todo guardado"; }
+  else if(!navigator.onLine){ cls="pend"; txt = n? `Sin conexión · ${n} pend.` : "Sin conexión · guardado"; }
   else if(net==="sending"){ cls="pend"; txt="Sincronizando…"; }
   else if(net==="badkey"){ cls="bad"; txt="Clave incorrecta"; }
   else if(net==="oldscript"){ cls="bad"; txt="Falta actualizar el script"; }
-  else if(net==="error"){ cls="pend"; txt = n? `Sin enviar · ${n} pendiente${pl}` : "Sin conexión con la hoja"; }
+  else if(net==="error"){ cls="pend"; txt = n? `Sin enviar · ${n} pend.` : "Sin conexión con la hoja"; }
   else if(n){ cls="pend"; txt=`⏳ ${n} pendiente${pl}`; }
-  else if(net==="ok"){ cls="ok"; txt="✓ Todo en Google Sheets"; }
+  else if(net==="ok"){ cls="ok"; txt="✓ Todo enviado"; }
   else txt="Conectando…";
   el.className=cls; el.textContent=txt;
 }
@@ -1471,7 +1485,7 @@ function vAjustes(){
     <p class="muted" style="margin-bottom:0;font-size:17px">Una vez instalada se abre sin conexión. Los datos se guardan en el dispositivo y se envían solos a Google Sheets cuando hay internet.</p>
   </div>`;
 }
-document.addEventListener("click",e=>{ if(e.target.id==="sync"||e.target.id==="gear") go({name:"ajustes"}); });
+document.addEventListener("click",e=>{ if(e.target.id==="sync"||e.target.id==="gear") go({name:"ajustes"}); else if(e.target.closest&&e.target.closest("#marca")) go({name:"home"}); });
 window.addEventListener("online",()=>sync());
 document.addEventListener("input",e=>{ const t=e.target; if(t.classList&&t.classList.contains("err")){ t.classList.remove("err"); const fe=t.parentElement.querySelector(".ferr"); if(fe) fe.textContent=""; } });
 window.addEventListener("offline",updateSync);

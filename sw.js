@@ -1,6 +1,7 @@
 // APP CALIDAD · funciona sin conexión y se actualiza sola
-const CACHE = "appcalidad-v17";
-const FILES = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png", "zxing-reader.js", "zxing_reader.wasm"];
+const CACHE = "appcalidad-v18";
+const FILES = ["./", "index.html", "manifest.webmanifest", "logo.png", "icon-192.png", "icon-512.png", "apple-touch-icon.png",
+  "fuentes/atkinson-400.woff2", "fuentes/atkinson-700.woff2", "fuentes/bricolage.woff2", "zxing-reader.js", "zxing_reader.wasm"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES.map(u => new Request(u, { cache: "reload" })))).then(() => self.skipWaiting()));
 });
