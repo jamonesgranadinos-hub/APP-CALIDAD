@@ -209,7 +209,7 @@ const LOTES_COLS = ["Lote interno","Fecha entrada","Proveedor","Lote de origen",
 const TEST_COLS = ["Lote interno","Fecha","Nº testigo","Nº pieza","Tipo","Peso (kg)","Clasificación","Tª (ºC)","pH","Grasa","ETG","Observaciones"];
 const YN = [["prodConformes","¿Revisados conformes los productos?"],["docRevisada","¿Se ha revisado toda la documentación?"],["cumpleEspec","¿Documentación y proveedor cumplen las especificaciones?"],["aptoExport","¿Apto para exportación?"]];
 const LSKEY = "appcalidad.v1";
-const APP_VERSION = "3.14 · 25/11/2026";
+const APP_VERSION = "3.15 · 25/11/2026";
 const SINO = ["Productos revisados conformes","Documentación revisada","Cumple especificaciones","Apto exportación"];
 const TABLAS = {
   Lotes:{ cab:[...LOTES_COLS,"ID app"], k:"ID app", ocultas:["ID app"], orden:[["Fecha entrada",1]],
@@ -236,6 +236,10 @@ TABLAS["Lotes anteriores"]={ cab:["Lote interno","Fecha entrada","Observaciones"
 TABLAS.Manteca={ cab:["Fecha","Lote","Tipo","Talla","Nº piezas","Hora registro","ID app","ID lote"], k:"ID app", ocultas:["ID app","ID lote"], orden:[["Fecha",1],["Hora registro",1]],
   fmt:{"Fecha":"dd/mm/yyyy","Lote":"@","Tipo":"@","Talla":"@","Nº piezas":"0","Hora registro":"@"} };
 const mantFila = x => ({"Fecha":dmy(x.fecha),"Lote":x.lote,"Tipo":x.tipo||"","Talla":x.talla,"Nº piezas":x.piezas,"Hora registro":x.hora,"ID app":x.id,"ID lote":x.loteId||""});
+TABLAS.Inventario={ cab:["Inventario","Fecha recuento","Sala","Lote","Tipo","Talla","Nº piezas","Peso medio (kg)","Kg","Hora registro","ID app","Orden sala","Orden talla"], k:"ID app",
+  ocultas:["ID app","Orden sala","Orden talla"], orden:[["Inventario",1],["Orden sala",1],["Lote",1],["Tipo",1],["Orden talla",1]],
+  fmt:{"Inventario":"@","Fecha recuento":"dd/mm/yyyy","Sala":"@","Lote":"@","Tipo":"@","Talla":"@","Nº piezas":"#,##0","Peso medio (kg)":"0.00","Kg":"#,##0.00","Hora registro":"@"} };
+TABLAS._Config={ cab:["Clave","Valor","ID app"], k:"ID app", fmt:{"Clave":"@","Valor":"@","ID app":"@"} };
 TABLAS.Incidencias={ cab:["Fecha","Hora","Sala","Tipo","Descripción","Foto","Origen","ID app","Orden"], k:"ID app", ocultas:["ID app","Orden"], orden:[["Fecha",1],["Hora",1]],
   fmt:{"Fecha":"dd/mm/yyyy","Hora":"@","Sala":"@","Tipo":"@","Descripción":"@","Foto":"@","Origen":"@"} };
 // Sal utilizada = piezas totales del lote / 64 × 700 kg
@@ -282,7 +286,7 @@ function avisosSal(){
 const TIPOS_INC = ["Avería de cámara","Plagas o ácaros","Defecto en pieza","Limpieza","Temperatura fuera de rango","Otra"];
 
 /* ============ Estado y almacenamiento local ============ */
-let state = {lotes:{}, pend:{}, lect:{}, pendT:{}, inc:{}, pendI:{}, mant:{}, pendM:{}, lastTipo:""};
+let state = {lotes:{}, pend:{}, lect:{}, pendT:{}, inc:{}, pendI:{}, mant:{}, pendM:{}, inv:{}, pendV:{}, cfgAdmin:null, pendCfg:false, invSel:"", lastTipo:""};
 let lsOk = true;
 try{ const raw = localStorage.getItem(LSKEY); if(raw){ const s = JSON.parse(raw); state = Object.assign(state, s); } }catch(e){ lsOk = false; }
 Object.values(state.lotes).forEach(l=>(l.testigos||[]).forEach(t=>{ if(!t.tid) t.tid=Date.now().toString(36)+Math.random().toString(36).slice(2,8); }));
@@ -297,7 +301,7 @@ const parseNum = v => { v=String(v==null?"":v).trim().replace(/\s/g,""); if(!v) 
 const fmtN = (n,d) => n==null||n===""||isNaN(n) ? "" : Number(n).toLocaleString("es-ES",{minimumFractionDigits:d,maximumFractionDigits:d});
 const normLI = s => String(s||"").trim().toUpperCase();
 const lotesVivos = () => Object.values(state.lotes).filter(l=>!l.deleted).sort((a,b)=> (b.fechaEntrada||"").localeCompare(a.fechaEntrada||"") || (b.createdAt||0)-(a.createdAt||0));
-const pendCount = () => Object.keys(state.pend).length + Object.keys(state.pendT||{}).length + Object.keys(state.pendI||{}).length + Object.keys(state.pendM||{}).length;
+const pendCount = () => Object.keys(state.pend).length + Object.keys(state.pendT||{}).length + Object.keys(state.pendI||{}).length + Object.keys(state.pendM||{}).length + Object.keys(state.pendV||{}).length + (state.pendCfg?1:0);
 const mantDia = f => Object.values(state.mant).filter(x=>!x.deleted&&x.fecha===f).sort((a,b)=>(a.ts||0)-(b.ts||0));
 const loteDeNombre = n => lotesVivos().find(l=>normLI(l.loteInterno)===normLI(n));
 function commitMant(x){ x.updatedAt=Date.now(); state.mant[x.id]=x; state.pendM[x.id]=true; persist(); updateSync(); sync(); }
@@ -340,7 +344,7 @@ function ask(msg, yesTxt="Sí"){ return new Promise(res=>{ $("#mtext").textConte
 /* ============ Navegación ============ */
 let view = {name:"home"};
 function go(v){ if(view.name==="escanear"&&v.name!=="escanear") pararEscaner(); view = v; if(recargar && !isForm()){ location.reload(); return; } render(); window.scrollTo(0,0); }
-const isForm = () => ["loteForm","testForm","lectForm","incForm","tallasForm","mover","mantForm","antForm"].includes(view.name);
+const isForm = () => ["loteForm","testForm","lectForm","incForm","tallasForm","mover","mantForm","antForm","invForm","invLogin","invClave","invNuevo"].includes(view.name);
 
 function render(){
   const app = $("#app");
@@ -357,6 +361,7 @@ function render(){
   else if(view.name==="mover") app.innerHTML = vMover();
   else if(view.name==="ubic") app.innerHTML = vUbic();
   else if(view.name==="buscar") app.innerHTML = vBuscar();
+  else if(view.name.startsWith("inv")) app.innerHTML = adminSesion()||view.name==="invLogin" ? ({inv:vInv,invSala:vInvSala,invForm:vInvForm,invLogin:vInvLogin,invClave:vInvClave,invNuevo:vInvNuevo}[view.name]||vInv)() : vInvLogin();
   else if(view.name==="escanear") app.innerHTML = vEscanear();
   else if(view.name==="traz") app.innerHTML = vTraz();
   else if(view.name==="antForm") app.innerHTML = vAntForm();
@@ -380,6 +385,7 @@ function vHome(){
       return `<button class="tile on" data-go="temp"><span class="ic">🌡️</span><span class="tt">Temperaturas</span><span class="ds">Temperatura y humedad de cada sala</span>
       <span class="tag ${n===SALAS.length?"ok":"warn"}">Hoy: ${n} de ${SALAS.length} salas</span>${inc?`<span class="tag bad">${inc} incidencia${inc>1?"s":""} hoy</span>`:""}</button>`; })()}
     <button class="tile on" data-go="escanear"><span class="ic">📷</span><span class="tt">Escanear etiqueta</span><span class="ds">Lee el código de barras de una pieza y muestra su trazabilidad</span></button>
+    <button class="tile on" data-go="inv"><span class="ic">🔒</span><span class="tt">Inventario</span><span class="ds">Recuento de jamones por bodega y estufaje · solo administrador</span>${adminSesion()?'<span class="tag ok">Sesión abierta</span>':""}</button>
     <button class="tile on" data-go="ubic"><span class="ic">📍</span><span class="tt">Ubicación de lotes</span><span class="ds">Qué lotes y tallas hay en cada sala</span></button>
     ${(()=>{ const m=mantDia(today()), p=m.reduce((a,x)=>a+(x.piezas||0),0);
       return `<button class="tile on" data-go="mant"><span class="ic">🧈</span><span class="tt">Manteca</span><span class="ds">Registro diario de piezas enmantecadas</span>
@@ -813,6 +819,212 @@ function ubicLoteHTML(l){
       <b style="font-size:21px">📍 ${c==="_"?"Sin ubicar":esc(SALA[c].n)}</b> <span class="muted">· ${fmtN(tot,0)} piezas${desde.length?` · desde ${desde.map(fmtD).join(", ")}`:""}</span>
       <div style="font-size:18px;margin-top:2px">${Object.keys(g).map(tp=>(tp?`<span class="muted">${esc(tp)}:</span> `:"")+g[tp].join(" · ")).join("<br>")}</div></div>`; }).join("");
 }
+/* ---------- Inventario (solo administrador) ---------- */
+const INV_SALAS = SALAS.filter(x=>x.g==="Bodegas"||x.g==="Estufajes");
+const ADMKEY="appcalidad.admin";
+function adminSesion(){ try{ const t=+localStorage.getItem(ADMKEY)||0; return t>Date.now() && !!state.cfgAdmin; }catch(e){ return false; } }
+function abrirSesion(){ try{ localStorage.setItem(ADMKEY,String(Date.now()+12*3600*1000)); }catch(e){} }
+function cerrarSesion(){ try{ localStorage.removeItem(ADMKEY); }catch(e){} }
+async function hashClave(usuario,clave,salt){ const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(salt+":"+usuario.trim().toLowerCase()+":"+clave)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join(""); }
+const invActual = () => state.invSel || ("Inventario "+today().slice(0,4));
+const invLineas = (inv) => Object.values(state.inv).filter(x=>!x.deleted&&x.inventario===(inv||invActual()));
+const invNombres = () => [...new Set(Object.values(state.inv).filter(x=>!x.deleted).map(x=>x.inventario).concat([invActual()]))].sort().reverse();
+const kgLinea = x => (x.piezas!=null&&x.pesoMedio!=null) ? Math.round(x.piezas*x.pesoMedio*100)/100 : null;
+function sumar(ls){ let p=0,k=0,sinPeso=0; ls.forEach(x=>{ p+=x.piezas||0; const kk=kgLinea(x); if(kk==null) sinPeso+=x.piezas||0; else k+=kk; }); return {p,k:Math.round(k*100)/100,sinPeso}; }
+function commitInv(x){ x.updatedAt=Date.now(); state.inv[x.id]=x; state.pendV[x.id]=true; persist(); updateSync(); sync(); }
+const kgTxt = t => t.k||!t.sinPeso ? fmtN(t.k,2)+" kg"+(t.sinPeso?` <span class="tag warn">${fmtN(t.sinPeso,0)} pzs sin peso</span>`:"") : `<span class="tag warn">sin peso medio</span>`;
+
+function vInvLogin(){
+  const a=state.cfgAdmin;
+  if(!a){
+    if(!cfg) return `<button class="back" data-go="home">← Inicio</button><h1>Inventario</h1><div class="card"><p style="margin:0">Primero hay que conectar la app con Google Sheets (⚙ Ajustes) para poder crear el acceso de administrador.</p></div>`;
+    if(!state.lastSync) return `<button class="back" data-go="home">← Inicio</button><h1>Inventario</h1><div class="card"><p style="margin:0">Abre la app con internet una vez para comprobar si ya existe un administrador. Después vuelve a entrar aquí.</p></div>`;
+    return `<button class="back" data-go="home">← Inicio</button>
+    <h1>Crear acceso de administrador</h1>
+    <p class="muted" style="margin-top:0">Solo la primera vez. Este usuario y contraseña servirán en todos los móviles y tablets; nadie más podrá entrar en el inventario.</p>
+    <form id="f" autocomplete="off" novalidate><div class="card">
+      <div class="f"><label class="l" for="aUsr">Nombre de usuario</label><input class="in" id="aUsr" autocapitalize="none" autocomplete="username"></div>
+      <div class="f"><label class="l" for="aPw1">Contraseña (mínimo 6 caracteres)</label><input class="in" id="aPw1" type="password" autocomplete="new-password"></div>
+      <div class="f"><label class="l" for="aPw2">Repite la contraseña</label><input class="in" id="aPw2" type="password" autocomplete="new-password"></div>
+      <div class="ferr" id="e_adm"></div>
+    </div></form>
+    <div class="bar"><div class="in2"><button class="btn pri big" id="admCrear">Crear acceso</button></div></div>`;
+  }
+  return `<button class="back" data-go="home">← Inicio</button>
+  <h1>🔒 Inventario</h1>
+  <form id="f" autocomplete="off" novalidate><div class="card">
+    <div class="f"><label class="l" for="lUsr">Usuario</label><input class="in" id="lUsr" autocapitalize="none" autocomplete="username"></div>
+    <div class="f"><label class="l" for="lPw">Contraseña</label><input class="in" id="lPw" type="password" autocomplete="current-password"></div>
+    <div class="ferr" id="e_login"></div>
+  </div></form>
+  <div class="bar"><div class="in2"><button class="btn pri big" id="admEntrar">Entrar</button></div></div>`;
+}
+function vInvClave(){
+  return `<button class="back" data-go="inv">← Inventario</button>
+  <h1>Cambiar contraseña</h1>
+  <form id="f" autocomplete="off" novalidate><div class="card">
+    <div class="f"><label class="l" for="cAct">Contraseña actual</label><input class="in" id="cAct" type="password" autocomplete="current-password"></div>
+    <div class="f"><label class="l" for="cUsr">Usuario</label><input class="in" id="cUsr" value="${esc(state.cfgAdmin.usuario)}" autocapitalize="none"></div>
+    <div class="f"><label class="l" for="cPw1">Contraseña nueva (mínimo 6 caracteres)</label><input class="in" id="cPw1" type="password" autocomplete="new-password"></div>
+    <div class="f"><label class="l" for="cPw2">Repite la contraseña nueva</label><input class="in" id="cPw2" type="password" autocomplete="new-password"></div>
+    <div class="ferr" id="e_clave"></div>
+  </div></form>
+  <div class="bar"><div class="in2"><button class="btn pri big" id="claveOk">Guardar</button></div></div>`;
+}
+function vInvNuevo(){
+  return `<button class="back" data-go="inv">← Inventario</button>
+  <h1>Nuevo inventario</h1>
+  <div class="card"><div class="f"><label class="l" for="nInv">Nombre del inventario</label><input class="in" id="nInv" value="Inventario ${esc(new Date().toLocaleDateString("es-ES",{month:"long",year:"numeric"}))}"></div>
+  <p class="muted" style="margin:0;font-size:16px">Los inventarios anteriores se conservan y se pueden consultar desde el selector.</p></div>
+  <div class="bar"><div class="in2"><button class="btn pri big" id="nInvOk">Empezar inventario</button></div></div>`;
+}
+function vInv(){
+  const inv=invActual(), ls=invLineas(inv), tot=sumar(ls), lotes={};
+  ls.forEach(x=>{ (lotes[x.lote]=lotes[x.lote]||[]).push(x); });
+  const grupos=[...new Set(INV_SALAS.map(x=>x.g))];
+  return `<button class="back" data-go="home">← Inicio</button>
+  <div class="row"><h1 class="grow" style="margin-bottom:8px">🔒 Inventario</h1></div>
+  <div class="row" style="margin-bottom:14px"><select class="in grow" id="invSel" style="width:auto;flex:1">${invNombres().map(n=>`<option${n===inv?" selected":""}>${esc(n)}</option>`).join("")}</select><button class="btn" id="invNuevo">＋ Nuevo</button></div>
+  <div class="stats" style="grid-template-columns:repeat(3,1fr)">
+    <div class="stat"><b>${fmtN(tot.p,0)}</b><span>Piezas</span></div>
+    <div class="stat"><b>${fmtN(tot.k,0)}</b><span>Kg${tot.sinPeso?" (parcial)":""}</span></div>
+    <div class="stat"><b>${Object.keys(lotes).length}</b><span>Lotes</span></div>
+  </div>
+  ${grupos.map(g=>`<h2>${g}</h2><div class="salas">${INV_SALAS.filter(x=>x.g===g).map(x=>{ const t=sumar(ls.filter(y=>y.sala===x.c));
+    return `<button class="sala ${t.p?"done":"pend"}" data-isala="${x.c}"><span class="sn">${esc(x.s)}</span>${t.p?`<span class="sv">${fmtN(t.p,0)} piezas</span><span class="sv">${fmtN(t.k,0)} kg</span>`:""}<span class="ss" style="color:${t.p?"var(--ok)":"var(--muted)"}">${t.p?"✓ Con datos":"Sin contar"}</span></button>`; }).join("")}</div>`).join("")}
+  <h2>Por lote</h2>
+  ${Object.keys(lotes).length?`<div class="list">${Object.keys(lotes).sort().map(lt=>{ const xs=lotes[lt], t=sumar(xs), sl=[...new Set(xs.map(x=>x.sala))], enCal=loteDeNombre(lt);
+    return `<div class="card"><div style="font-size:22px;font-weight:700;font-family:var(--display)">Lote ${esc(lt)}</div>
+      <div class="meta">${[...new Set(xs.map(x=>x.tipo).filter(Boolean))].map(esc).join(" · ")||"Sin tipo"}</div>
+      <div class="meta">📍 ${sl.map(c=>esc(salaCorta(c))).join(" · ")}</div>
+      <div style="margin:4px 0 12px"><b style="font-size:20px">${fmtN(t.p,0)}</b> <span class="muted">piezas ·</span> <b>${kgTxt(t)}</b></div>
+      <button class="btn ${enCal?"":"pri"}" data-tras="${esc(lt)}" style="width:100%;min-height:52px;font-size:18px">${enCal?"↻ Actualizar en la APP CALIDAD":"→ Pasar a la APP CALIDAD"}</button></div>`; }).join("")}</div>`
+  : `<div class="empty">Todavía no hay nada contado en este inventario. Toca una bodega o un estufaje para empezar.</div>`}
+  <h2>Exportar y cerrar</h2>
+  <div class="card" style="display:flex;flex-direction:column;gap:12px">
+    <button class="btn pri big" id="invExcel">⬇ Excel para contabilidad</button>
+    ${Object.keys(lotes).length?`<button class="btn" id="invTrasTodo" style="width:100%">→ Pasar todos los lotes a la APP CALIDAD</button>`:""}
+    <div class="row"><button class="btn grow" id="invClave" style="width:auto">Cambiar contraseña</button><button class="btn danger grow" id="invSalir" style="width:auto">Cerrar sesión</button></div>
+  </div>`;
+}
+function vInvSala(){
+  const x=SALA[view.sala], ls=invLineas().filter(y=>y.sala===x.c), t=sumar(ls), g={};
+  ls.forEach(y=>{ const k=y.lote+"|"+(y.tipo||""); (g[k]=g[k]||[]).push(y); });
+  return `<button class="back" data-go="inv">← Inventario</button>
+  <h1 style="margin-bottom:4px">${esc(x.n)}</h1><p class="muted" style="margin-top:0">${esc(invActual())} · ${fmtN(t.p,0)} piezas · ${kgTxt(t)}</p>
+  <button class="btn pri big" id="invAdd" style="margin-bottom:14px">＋ Añadir lote</button>
+  ${Object.keys(g).length?`<div class="list">${Object.keys(g).sort().map(k=>{ const xs=g[k].slice().sort((a,b)=>TALLAS.indexOf(a.talla)-TALLAS.indexOf(b.talla)), tt=sumar(xs);
+    return `<button class="card" data-igrp="${esc(k)}" style="text-align:left;width:100%;cursor:pointer">
+      <div style="font-size:22px;font-weight:700;font-family:var(--display)">Lote ${esc(xs[0].lote)}${xs.some(y=>state.pendV[y.id])?'<span class="dot" title="Pendiente de enviar"></span>':""}</div><div class="meta">${esc(xs[0].tipo||"Sin tipo")}</div>
+      <div style="margin-top:4px"><b style="font-size:20px">${fmtN(tt.p,0)}</b> <span class="muted">piezas ·</span> <b>${kgTxt(tt)}</b></div>
+      <div class="tw" style="margin-top:10px;border-width:1px"><table class="t"><thead><tr><th>Talla</th><th>Piezas</th><th>Peso medio</th><th>Kg</th></tr></thead><tbody>
+      ${xs.map(y=>`<tr><td><b>${y.talla}</b></td><td class="num">${fmtN(y.piezas,0)}</td><td class="num">${y.pesoMedio!=null?fmtN(y.pesoMedio,2)+" kg":"—"}</td><td class="num">${kgLinea(y)!=null?fmtN(kgLinea(y),2):"—"}</td></tr>`).join("")}
+      </tbody></table></div></button>`; }).join("")}</div>
+    <p class="muted" style="font-size:16px">Toca un lote para corregirlo.</p>`
+  : `<div class="empty">Esta sala está sin contar.</div>`}`;
+}
+function vInvForm(){
+  const d=draft, x=SALA[d.sala], lotesConocidos=[...new Set(lotesVivos().map(l=>l.loteInterno).concat(Object.values(state.inv).filter(y=>!y.deleted).map(y=>y.lote)))];
+  return `<button class="back" id="cancel">← ${d.editando?"Volver sin guardar":"Volver"}</button>
+  <h1 style="margin-bottom:4px">${d.editando?"Corregir lote":"Añadir lote"}</h1><p class="muted" style="margin-top:0">${esc(x.n)} · ${esc(invActual())}</p>
+  <form id="f" autocomplete="off" novalidate><div class="card">
+    <div class="grid2">
+      <div class="f"><label class="l" for="vLote">Lote <span class="req">*</span></label><input class="in bignum" id="vLote" list="vLotes" value="${esc(d.lote)}" autocapitalize="characters" inputmode="numeric"><datalist id="vLotes">${lotesConocidos.map(l=>`<option value="${esc(l)}">`).join("")}</datalist><div class="ferr" id="e_vLote"></div></div>
+      <div class="f"><label class="l" for="vFecha">Fecha del recuento</label><input class="in" type="date" id="vFecha" value="${esc(d.fecha)}"></div>
+    </div>
+    <div class="f"><label class="l" for="vTipo">Tipo de producto</label><select class="in" id="vTipo"><option value="">— Sin especificar —</option>${TIPOS.concat(d.tipo&&!TIPOS.includes(d.tipo)?[d.tipo]:[]).map(t=>`<option value="${esc(t)}"${d.tipo===t?" selected":""}>${esc(t)}</option>`).join("")}</select></div>
+    <div class="tgrid" style="grid-template-columns:60px 1fr 1fr 1fr"><div class="th" style="text-align:center">Talla</div><div class="th">Nº piezas</div><div class="th">Peso medio (kg)</div><div class="th">Kg</div>
+    ${TALLAS.map(t=>`<div class="tl">${t}</div><input class="in" data-vp="${t}" inputmode="numeric" value="${d.p[t]??""}"><input class="in" data-vk="${t}" inputmode="decimal" value="${d.k[t]!=null?String(d.k[t]).replace(".",","):""}"><div class="num" data-vt="${t}" style="font-weight:700;font-size:19px"></div>`).join("")}</div>
+    <p id="vTot" style="font-size:20px;font-weight:700;margin-bottom:0"></p><div class="ferr" id="e_vT"></div>
+  </div>
+  ${d.editando?`<div style="margin-top:22px"><button type="button" class="btn danger" id="vDel">Quitar este lote de la sala</button></div>`:""}
+  </form>
+  <div class="bar"><div class="in2">${d.editando?"":`<button class="btn big" id="vNext">Guardar y otro lote</button>`}<button class="btn pri big" id="vSave">Guardar</button></div></div>`;
+}
+function guardarInv(seguir){
+  const d=draft; d.lote=$("#vLote").value.trim().toUpperCase(); d.fecha=$("#vFecha").value||today(); d.tipo=$("#vTipo").value;
+  let bad=false; $("#e_vLote").textContent=""; $("#e_vT").textContent="";
+  if(!d.lote){ $("#vLote").classList.add("err"); $("#e_vLote").textContent="Escribe el lote"; bad=true; }
+  const nuevo={};
+  TALLAS.forEach(t=>{ const ip=document.querySelector(`[data-vp="${t}"]`), ik=document.querySelector(`[data-vk="${t}"]`), p=parseNum(ip.value), k=parseNum(ik.value);
+    [ip,ik].forEach(e=>e.classList.remove("err"));
+    if(Number.isNaN(p)||(p!=null&&(p<0||!Number.isInteger(p)))){ ip.classList.add("err"); bad=true; }
+    if(Number.isNaN(k)||(k!=null&&k<0)){ ik.classList.add("err"); bad=true; }
+    if(p>0) nuevo[t]={piezas:p,pesoMedio:Number.isNaN(k)?null:k}; });
+  if(!bad&&!Object.keys(nuevo).length){ $("#e_vT").textContent="Escribe las piezas de al menos una talla"; bad=true; }
+  // mismo lote y tipo ya contado en esta sala (al añadir): se avisa para no duplicar
+  if(!bad&&!d.editando&&invLineas().some(y=>y.sala===d.sala&&normLI(y.lote)===d.lote&&(y.tipo||"")===d.tipo)){ $("#e_vLote").textContent="Este lote ya está contado en esta sala con ese tipo. Ábrelo desde la lista para corregirlo."; bad=true; }
+  if(bad){ toast("Revisa los campos marcados"); return; }
+  const n=new Date(), hora=String(n.getHours()).padStart(2,"0")+":"+String(n.getMinutes()).padStart(2,"0"), inv=invActual(), x=SALA[d.sala];
+  const previas={}; (d.ids||[]).forEach(id=>{ const y=state.inv[id]; if(y) previas[y.talla]=y; });
+  Object.keys(previas).forEach(t=>{ if(!nuevo[t]) commitInv(Object.assign({},previas[t],{deleted:true})); });
+  Object.keys(nuevo).forEach(t=>{ const prev=previas[t];
+    commitInv({id:prev?prev.id:uid(),inventario:inv,fecha:d.fecha,sala:d.sala,salaNombre:x.n,ordenSala:x.o,lote:d.lote,tipo:d.tipo,talla:t,piezas:nuevo[t].piezas,pesoMedio:nuevo[t].pesoMedio,hora:prev?prev.hora:hora,deleted:false}); });
+  toast(`Lote ${d.lote} guardado en ${x.s}`);
+  if(seguir){ draft={sala:d.sala,lote:"",tipo:d.tipo,fecha:d.fecha,p:{},k:{},ids:[],editando:false}; go({name:"invForm"}); }
+  else go({name:"invSala",sala:d.sala});
+}
+// Pasa un lote del inventario a la APP CALIDAD: tallas, piezas y ubicación
+function traspasar(nombre){
+  const xs=invLineas().filter(y=>normLI(y.lote)===normLI(nombre)); if(!xs.length) return {ok:false};
+  const porK={}; xs.forEach(y=>{ const k=mkKey(y.tipo||"",y.talla); const o=(porK[k]=porK[k]||{n:0,salas:{},fecha:""}); o.n+=y.piezas||0; o.salas[y.sala]=(o.salas[y.sala]||0)+(y.piezas||0); if(y.fecha>o.fecha) o.fecha=y.fecha; });
+  const avisos=[], destino={}; let fecha="";
+  Object.keys(porK).forEach(k=>{ const ss=Object.entries(porK[k].salas).sort((a,b)=>b[1]-a[1]); destino[k]=ss[0][0]; if(ss.length>1) avisos.push(`${kLabel(k)} está repartida en ${ss.map(s=>salaCorta(s[0])).join(" y ")}: se ubica en ${salaCorta(ss[0][0])}`); if(porK[k].fecha>fecha) fecha=porK[k].fecha; });
+  const l=loteDeNombre(nombre);
+  const c = l ? JSON.parse(JSON.stringify(l)) : {id:uid(),anterior:true,createdAt:Date.now(),loteInterno:normLI(nombre),fechaEntrada:"",obs:"Alta desde "+invActual(),tallas:{},movs:[],testigos:[],deleted:false};
+  // talla sin tipo en Calidad que en el inventario sí lo tiene (un solo tipo): se renombra y conserva su historial
+  if(l){ const ops=[]; tallasDe(c).forEach(ok=>{ if(kTipo(ok)||porK[ok]) return; const nks=Object.keys(porK).filter(k=>kTalla(k)===kTalla(ok)&&kTipo(k)); if(nks.length!==1||c.tallas[nks[0]]) return; const nk=nks[0];
+      c.tallas[nk]=c.tallas[ok]; delete c.tallas[ok]; ops.push({t:"Tallas",col:"ID app",val:c.id+"_"+ok});
+      (c.movs||[]).forEach(m=>{ const i=m.tallas.indexOf(ok); if(i<0) return; m.tallas[i]=nk; if(m.desde&&ok in m.desde){ m.desde[nk]=m.desde[ok]; delete m.desde[ok]; } if(m.piezas&&ok in m.piezas){ m.piezas[nk]=m.piezas[ok]; delete m.piezas[ok]; } ops.push({t:"Movimientos",col:"ID app",val:m.mid+"_"+ok}); }); });
+    c.delOps=(c.delOps||[]).concat(ops); }
+  Object.keys(porK).forEach(k=>{ c.tallas[k]={n:porK[k].n,diasSal:c.tallas[k]?c.tallas[k].diasSal:null}; });
+  const u=ubicaciones(c), porSala={}; Object.keys(destino).forEach(k=>{ if(!u[k]||u[k].dest!==destino[k]) (porSala[destino[k]]=porSala[destino[k]]||[]).push(k); });
+  let i=0; Object.keys(porSala).forEach(sa=>{ c.movs=(c.movs||[]).concat([{mid:uid(),fecha:fecha||today(),ts:Date.now()+(i++),destino:sa,tallas:porSala[sa].sort(kCmp),desde:Object.fromEntries(porSala[sa].map(k=>[k,u[k]?u[k].dest:""])),piezas:Object.fromEntries(porSala[sa].map(k=>[k,porK[k].n]))}]); });
+  commit(c); return {ok:true,nuevo:!l,avisos,id:c.id};
+}
+/* Excel genérico (varias hojas) para contabilidad */
+function xlsxHojas(hojas){
+  const ss=[], ssi=new Map(); const S=v=>{ v=String(v); if(!ssi.has(v)){ ssi.set(v,ss.length); ss.push(v); } return ssi.get(v); };
+  const R="http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+  const hoja=h=>{ let x=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>`;
+    h.anchos.forEach((w,i)=>x+=`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`);
+    x+=`</cols><sheetData><row r="1">`+h.cols.map((c,i)=>`<c r="${colL(i)}1" s="1" t="s"><v>${S(c)}</v></c>`).join("")+`</row>`;
+    h.filas.forEach((f,ri)=>{ const r=ri+2; x+=`<row r="${r}">`; f.forEach(([k,v,st],ci)=>{ if(v==null||v===""||(typeof v==="number"&&isNaN(v))) return; const ref=colL(ci)+r;
+      if(k==="s") x+=`<c r="${ref}" s="${st||6}" t="s"><v>${S(v)}</v></c>`; else if(k==="d") x+=`<c r="${ref}" s="2"><v>${serial(v)}</v></c>`; else x+=`<c r="${ref}" s="${st||0}"><v>${v}</v></c>`; }); x+=`</row>`; });
+    return x+`</sheetData></worksheet>`; };
+  const xs=hojas.map(hoja);
+  const sst=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${ss.length}" uniqueCount="${ss.length}">${ss.map(v=>`<si><t xml:space="preserve">${xe(v)}</t></si>`).join("")}</sst>`;
+  const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="3"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/><numFmt numFmtId="165" formatCode="0.00"/><numFmt numFmtId="166" formatCode="#,##0.00"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF2E2A80"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="9"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="166" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="3" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  const files=[
+    ["[Content_Types].xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${xs.map((_,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/></Types>`],
+    ["_rels/.rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${R}/officeDocument" Target="xl/workbook.xml"/></Relationships>`],
+    ["xl/workbook.xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="${R}"><sheets>${hojas.map((h,i)=>`<sheet name="${xe(h.nombre)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join("")}</sheets></workbook>`],
+    ["xl/_rels/workbook.xml.rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${xs.map((_,i)=>`<Relationship Id="rId${i+1}" Type="${R}/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join("")}<Relationship Id="rId${xs.length+1}" Type="${R}/styles" Target="styles.xml"/><Relationship Id="rId${xs.length+2}" Type="${R}/sharedStrings" Target="sharedStrings.xml"/></Relationships>`],
+    ...xs.map((x,i)=>[`xl/worksheets/sheet${i+1}.xml`,x]), ["xl/styles.xml",styles], ["xl/sharedStrings.xml",sst]];
+  return zip(files);
+}
+function excelInventario(){
+  const inv=invActual(), ls=invLineas(inv).slice().sort((a,b)=>(a.ordenSala||0)-(b.ordenSala||0)||a.lote.localeCompare(b.lote)||(a.tipo||"").localeCompare(b.tipo||"")||TALLAS.indexOf(a.talla)-TALLAS.indexOf(b.talla));
+  if(!ls.length){ toast("Este inventario está vacío"); return; }
+  const agr=(f)=>{ const g={}; ls.forEach(x=>{ const k=f(x); const o=(g[k]=g[k]||{p:0,k:0,sp:0}); o.p+=x.piezas||0; const kk=kgLinea(x); if(kk==null) o.sp+=x.piezas||0; else o.k+=kk; }); return g; };
+  const totFila=(lbl,o,n)=>[["s",lbl,1]].concat(Array(n).fill(["s",""])).concat([["n",o.p,7],["n",Math.round(o.k*100)/100,4]]);
+  const T=sumar(ls);
+  const det={nombre:"Detalle",cols:["Inventario","Fecha recuento","Sala","Lote","Tipo de producto","Talla","Nº piezas","Peso medio (kg)","Kg"],anchos:[22,13,24,12,42,8,11,15,13],
+    filas:ls.map(x=>[["s",inv],["d",x.fecha],["s",SALA[x.sala]?SALA[x.sala].n:x.salaNombre],["s",x.lote],["s",x.tipo||"Sin especificar"],["s",x.talla],["n",x.piezas,7],["n",x.pesoMedio,3],["n",kgLinea(x),4]])};
+  const gT=agr(x=>x.tipo||"Sin especificar"), gS=agr(x=>x.sala), gL=agr(x=>x.lote+"|"+(x.tipo||"Sin especificar"));
+  const porTipo={nombre:"Por tipo de producto",cols:["Tipo de producto","Nº piezas","Kg","Piezas sin peso medio"],anchos:[46,12,15,20],
+    filas:Object.keys(gT).sort().map(k=>[["s",k],["n",gT[k].p,7],["n",Math.round(gT[k].k*100)/100,4],["n",gT[k].sp||null,7]]).concat([[["s","TOTAL"],["n",T.p,7],["n",T.k,4],["n",T.sinPeso||null,7]]])};
+  const porSala={nombre:"Por sala",cols:["Sala","Nº piezas","Kg","Piezas sin peso medio"],anchos:[26,12,15,20],
+    filas:INV_SALAS.filter(x=>gS[x.c]).map(x=>[["s",x.n],["n",gS[x.c].p,7],["n",Math.round(gS[x.c].k*100)/100,4],["n",gS[x.c].sp||null,7]]).concat([[["s","TOTAL"],["n",T.p,7],["n",T.k,4],["n",T.sinPeso||null,7]]])};
+  const porLote={nombre:"Por lote",cols:["Lote","Tipo de producto","Nº piezas","Kg","Piezas sin peso medio"],anchos:[12,46,12,15,20],
+    filas:Object.keys(gL).sort().map(k=>{ const [l,t]=k.split("|"); return [["s",l],["s",t],["n",gL[k].p,7],["n",Math.round(gL[k].k*100)/100,4],["n",gL[k].sp||null,7]]; }).concat([[["s","TOTAL"],["s",""],["n",T.p,7],["n",T.k,4],["n",T.sinPeso||null,7]]])};
+  const bytes=xlsxHojas([porTipo,porSala,porLote,det]);
+  const url=URL.createObjectURL(new Blob([bytes],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
+  const a=document.createElement("a"); a.href=url; a.download=`${inv.replace(/[^\wáéíóúñÁÉÍÓÚÑ -]/g,"").trim()} - ${today()}.xlsx`; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); },3000);
+  toast("Excel descargado");
+  return bytes;
+}
+
 /* ---------- Escanear etiqueta y trazabilidad de pieza ---------- */
 // Código de la etiqueta: 6 cifras de lote + nº de pieza (p. ej. 26471298 = lote 264712, pieza 98)
 function leerCodigo(txt){ const d=String(txt||"").replace(/\D/g,""); if(d.length<6) return null; return {lote:d.slice(0,6), pieza:d.length>6?String(parseInt(d.slice(6),10)):"" , codigo:d}; }
@@ -1120,6 +1332,58 @@ function bindView(){
   if(view.name==="home") app.querySelectorAll("[data-avlote]").forEach(b=>b.onclick=()=>go({name:"lote",id:b.dataset.avlote}));
   if(view.name==="ubic"){ app.querySelectorAll("[data-lote]").forEach(b=>b.onclick=()=>go({name:"lote",id:b.dataset.lote}));
     $("#nuevoAnt").onclick=()=>{ draft={loteInterno:"",fechaEntrada:"",obs:"",todas:"",desde:"",grupos:[{tipo:"",n:{},d:{},sala:{}}]}; go({name:"antForm"}); }; }
+  if(view.name==="invLogin"||(view.name.startsWith("inv")&&!adminSesion())){
+    $("#f")&&($("#f").onsubmit=e=>e.preventDefault());
+    const cr=$("#admCrear"); if(cr) cr.onclick=async()=>{ const u=$("#aUsr").value.trim(), p1=$("#aPw1").value, p2=$("#aPw2").value, e=$("#e_adm");
+      if(!u){ e.textContent="Escribe un nombre de usuario"; return; } if(p1.length<6){ e.textContent="La contraseña debe tener al menos 6 caracteres"; return; } if(p1!==p2){ e.textContent="Las contraseñas no coinciden"; return; }
+      if(!navigator.onLine){ e.textContent="Necesitas internet para crear el acceso"; return; }
+      const salt=uid()+uid(); state.cfgAdmin={usuario:u,salt,hash:await hashClave(u,p1,salt)}; state.pendCfg=true; persist(); abrirSesion(); sync(); toast("Acceso creado"); go({name:"inv"}); };
+    const en=$("#admEntrar"); if(en){ const entrar=async()=>{ const a=state.cfgAdmin, u=$("#lUsr").value.trim(), pw=$("#lPw").value;
+        if(u.toLowerCase()===a.usuario.trim().toLowerCase() && await hashClave(u,pw,a.salt)===a.hash){ abrirSesion(); toast("Bienvenido"); sync(true); go({name:view.name==="invLogin"?"inv":view.name}); }
+        else { $("#e_login").textContent="Usuario o contraseña incorrectos"; $("#lPw").value=""; } };
+      en.onclick=entrar; $("#lPw").addEventListener("keydown",ev=>{ if(ev.key==="Enter"){ ev.preventDefault(); entrar(); } }); setTimeout(()=>{ const i=$("#lUsr"); i&&i.focus(); },50); }
+  }
+  else if(view.name==="inv"){
+    $("#invSel").onchange=e=>{ state.invSel=e.target.value; persist(); render(); };
+    $("#invNuevo").onclick=()=>go({name:"invNuevo"});
+    app.querySelectorAll("[data-isala]").forEach(b=>b.onclick=()=>go({name:"invSala",sala:b.dataset.isala}));
+    app.querySelectorAll("[data-tras]").forEach(b=>b.onclick=async()=>{ const lt=b.dataset.tras, xs=invLineas().filter(y=>normLI(y.lote)===normLI(lt)), t=sumar(xs), ya=loteDeNombre(lt);
+      if(!await ask(`¿${ya?"Actualizar":"Pasar"} el lote ${lt} en la APP CALIDAD con ${fmtN(t.p,0)} piezas en ${[...new Set(xs.map(x=>salaCorta(x.sala)))].join(" y ")}? ${ya?"Se actualizan sus piezas por talla y su ubicación.":"Se dará de alta como lote anterior con sus tallas y ubicación."}`,ya?"Actualizar":"Pasar")) return;
+      const r=traspasar(lt); toast(r.ok?`Lote ${lt} ${r.nuevo?"pasado":"actualizado"} en Calidad`:"No se pudo pasar"); if(r.avisos&&r.avisos.length) setTimeout(()=>ask(r.avisos.join(". ")+".","Entendido"),400); render(); });
+    const tt=$("#invTrasTodo"); if(tt) tt.onclick=async()=>{ const ls=[...new Set(invLineas().map(y=>y.lote))];
+      if(!await ask(`¿Pasar los ${ls.length} lotes de este inventario a la APP CALIDAD? Los que ya existen se actualizan con las piezas y la ubicación del inventario.`,"Pasar todos")) return;
+      const av=[]; ls.forEach(lt=>{ const r=traspasar(lt); if(r.avisos) av.push(...r.avisos.map(a=>"Lote "+lt+": "+a)); }); toast(`${ls.length} lotes pasados a Calidad`); if(av.length) setTimeout(()=>ask(av.join(". ")+".","Entendido"),400); render(); };
+    $("#invExcel").onclick=excelInventario;
+    $("#invClave").onclick=()=>go({name:"invClave"});
+    $("#invSalir").onclick=()=>{ cerrarSesion(); toast("Sesión cerrada"); go({name:"home"}); };
+  }
+  else if(view.name==="invNuevo"){
+    $("#nInvOk").onclick=()=>{ const n=$("#nInv").value.trim(); if(!n){ toast("Escribe un nombre"); return; } state.invSel=n; persist(); toast("Inventario «"+n+"» iniciado"); go({name:"inv"}); };
+  }
+  else if(view.name==="invClave"){
+    $("#f").onsubmit=e=>e.preventDefault();
+    $("#claveOk").onclick=async()=>{ const a=state.cfgAdmin, e=$("#e_clave"), act=$("#cAct").value, u=$("#cUsr").value.trim(), p1=$("#cPw1").value, p2=$("#cPw2").value;
+      if(await hashClave(a.usuario,act,a.salt)!==a.hash){ e.textContent="La contraseña actual no es correcta"; return; }
+      if(!u){ e.textContent="Escribe un nombre de usuario"; return; } if(p1.length<6){ e.textContent="La contraseña nueva debe tener al menos 6 caracteres"; return; } if(p1!==p2){ e.textContent="Las contraseñas nuevas no coinciden"; return; }
+      const salt=uid()+uid(); state.cfgAdmin={usuario:u,salt,hash:await hashClave(u,p1,salt)}; state.pendCfg=true; persist(); sync(); toast("Contraseña cambiada"); go({name:"inv"}); };
+  }
+  else if(view.name==="invSala"){
+    $("#invAdd").onclick=()=>{ draft={sala:view.sala,lote:"",tipo:"",fecha:today(),p:{},k:{},ids:[],editando:false}; go({name:"invForm"}); };
+    app.querySelectorAll("[data-igrp]").forEach(b=>b.onclick=()=>{ const [lt,tp]=b.dataset.igrp.split("|"); const xs=invLineas().filter(y=>y.sala===view.sala&&y.lote===lt&&(y.tipo||"")===tp);
+      draft={sala:view.sala,lote:lt,tipo:tp,fecha:xs[0].fecha,p:Object.fromEntries(xs.map(y=>[y.talla,y.piezas])),k:Object.fromEntries(xs.map(y=>[y.talla,y.pesoMedio])),ids:xs.map(y=>y.id),editando:true}; go({name:"invForm"}); });
+  }
+  else if(view.name==="invForm"){
+    $("#f").onsubmit=e=>e.preventDefault();
+    $("#cancel").onclick=()=>go({name:"invSala",sala:draft.sala});
+    const calc=()=>{ let tp=0,tk=0,sp=0; TALLAS.forEach(t=>{ const p=parseNum(document.querySelector(`[data-vp="${t}"]`).value), k=parseNum(document.querySelector(`[data-vk="${t}"]`).value), c=document.querySelector(`[data-vt="${t}"]`);
+        if(p>0&&k>0&&!Number.isNaN(p)&&!Number.isNaN(k)){ c.textContent=fmtN(p*k,2); tk+=p*k; } else c.textContent=""; if(p>0&&!Number.isNaN(p)){ tp+=p; if(!(k>0)) sp+=p; } });
+      $("#vTot").innerHTML=tp?`Total: ${fmtN(tp,0)} piezas · ${fmtN(tk,2)} kg${sp?` <span class="tag warn">${fmtN(sp,0)} sin peso medio</span>`:""}`:""; };
+    app.querySelectorAll("[data-vp],[data-vk]").forEach(i=>i.addEventListener("input",calc)); calc();
+    $("#vSave").onclick=()=>guardarInv(false); const nx=$("#vNext"); if(nx) nx.onclick=()=>guardarInv(true);
+    $("#vLote").addEventListener("change",()=>{ const l=loteDeNombre($("#vLote").value); const tps=l?tiposDe(l).filter(Boolean):[]; if(tps.length===1&&!$("#vTipo").value) $("#vTipo").value=tps[0]; });
+    const dl=$("#vDel"); if(dl) dl.onclick=async()=>{ if(await ask(`¿Quitar el lote ${draft.lote} de ${SALA[draft.sala].s} en este inventario?`,"Quitar")){ draft.ids.forEach(id=>{ const y=state.inv[id]; if(y) commitInv(Object.assign({},y,{deleted:true})); }); toast("Lote quitado"); go({name:"invSala",sala:draft.sala}); } };
+    if(!draft.editando) setTimeout(()=>{ const i=$("#vLote"); if(i&&document.activeElement===document.body) i.focus(); },50);
+  }
   if(view.name==="escanear"){
     iniciarEscaner();
     const ok=()=>{ const c=leerCodigo($("#scanTxt").value); if(!c){ $("#e_scan").textContent="Escribe al menos las 6 cifras del lote"; return; } go({name:"traz",lote:c.lote,pieza:c.pieza,codigo:c.codigo}); };
@@ -1363,7 +1627,12 @@ function desdeServidor(datos){
       fotoUrl:/^https?:/.test(u)?u:"",foto:/^https?:/.test(u)}; }).filter(Boolean);
   const mants=objetos(datos.Manteca).map(r=>{ const id=sv(r["ID app"]); return id&&{id,fecha:sv(r["Fecha"]),lote:sv(r["Lote"]),tipo:sv(r["Tipo"]),loteId:sv(r["ID lote"]),talla:sv(r["Talla"]),
     piezas:nv(r["Nº piezas"]),hora:sv(r["Hora registro"])}; }).filter(Boolean);
-  return {lotes:Object.values(lotes), lects, incs, mants};
+  const cf=Object.fromEntries(objetos(datos._Config).map(r=>[sv(r["Clave"]),sv(r["Valor"])]));
+  const admin = cf.admin_hash ? {usuario:cf.admin_usuario,salt:cf.admin_salt,hash:cf.admin_hash} : null;
+  const inv = datos.Inventario ? objetos(datos.Inventario).map(r=>{ const id=sv(r["ID app"]); if(!id) return null; const sc=SALAS.find(x=>x.n===sv(r["Sala"]));
+    return {id,inventario:sv(r["Inventario"]),fecha:sv(r["Fecha recuento"]),sala:sc?sc.c:"",salaNombre:sv(r["Sala"]),ordenSala:sc?sc.o:0,lote:sv(r["Lote"]),tipo:sv(r["Tipo"]),talla:sv(r["Talla"]),
+      piezas:nv(r["Nº piezas"]),pesoMedio:nv(r["Peso medio (kg)"]),hora:sv(r["Hora registro"])}; }).filter(Boolean) : null;
+  return {lotes:Object.values(lotes), lects, incs, mants, admin, inv};
 }
 async function sync(manual){
   if(!cfg||syncing){ updateSync(); return; }
@@ -1390,6 +1659,13 @@ async function sync(manual){
       if(!x.deleted && x.estado==="INCIDENCIA") put.push({t:"Incidencias",fila:{"Fecha":dmy(x.fecha),"Hora":x.hora,"Sala":x.salaNombre,"Tipo":"Ronda de temperaturas",
         "Descripción":x.incidencia,"Foto":"","Origen":"Ronda de temperaturas","ID app":"T_"+id,"Orden":x.orden}});
       else del.push({t:"Incidencias",col:"ID app",val:"T_"+id}); }
+    const sentV={}, sentCfg=state.pendCfg;
+    Object.keys(state.pendV).forEach(id=>{ if(!state.inv[id]) delete state.pendV[id]; });
+    for(const id of Object.keys(state.pendV)){ const x=state.inv[id]; sentV[id]=x.updatedAt;
+      if(x.deleted) del.push({t:"Inventario",col:"ID app",val:id});
+      else put.push({t:"Inventario",fila:{"Inventario":x.inventario,"Fecha recuento":dmy(x.fecha),"Sala":x.salaNombre,"Lote":x.lote,"Tipo":x.tipo||"","Talla":x.talla,"Nº piezas":x.piezas,
+        "Peso medio (kg)":x.pesoMedio,"Kg":kgLinea(x),"Hora registro":x.hora,"ID app":id,"Orden sala":x.ordenSala,"Orden talla":TALLAS.indexOf(x.talla)+1}}); }
+    if(sentCfg&&state.cfgAdmin){ const a=state.cfgAdmin; [["admin_usuario",a.usuario],["admin_salt",a.salt],["admin_hash",a.hash]].forEach(([k,v])=>put.push({t:"_Config",fila:{"Clave":k,"Valor":v,"ID app":k}})); }
     const sentM={};
     Object.keys(state.pendM).forEach(id=>{ if(!state.mant[id]) delete state.pendM[id]; });
     for(const id of Object.keys(state.pendM)){ const x=state.mant[id]; sentM[id]=x.updatedAt;
@@ -1403,15 +1679,20 @@ async function sync(manual){
         if(data){ archivos.push({id,nombre:"INC_"+x.fecha+"_"+x.sala+"_"+id+".jpg",tipo:"image/jpeg",datos:String(data).split(",")[1]}); foto="archivo:"+id; } }
       put.push({t:"Incidencias",fila:incFila(x,foto)}); }
     const res = await call("POST",{action:"sync",tablas:TABLAS,put,upd,del,archivos,
-      leer:[{t:"Lotes"},{t:"Lotes anteriores"},{t:"Testigos"},{t:"Tallas"},{t:"Movimientos"},{t:"Temperaturas",colFecha:"Fecha",dias:60},{t:"Incidencias",colFecha:"Fecha",dias:60},{t:"Manteca",colFecha:"Fecha",dias:120}]});
+      leer:[{t:"Lotes"},{t:"Lotes anteriores"},{t:"Testigos"},{t:"Tallas"},{t:"Movimientos"},{t:"Temperaturas",colFecha:"Fecha",dias:60},{t:"Incidencias",colFecha:"Fecha",dias:60},{t:"Manteca",colFecha:"Fecha",dias:120},{t:"_Config"}].concat(adminSesion()?[{t:"Inventario"}]:[])});
     if(!(res.v>=3) || (archivos.length && !(res.v>=4))) throw new Error("version");
     for(const a of archivos){ const u=res.archivos&&res.archivos[a.id]; if(u && state.inc[a.id]){ state.inc[a.id].fotoUrl=u; await fotosDB.del(a.id); } }
     for(const id in sentI) if(state.inc[id] && state.inc[id].updatedAt===sentI[id]) delete state.pendI[id];
     for(const id in sentM) if(state.mant[id] && state.mant[id].updatedAt===sentM[id]) delete state.pendM[id];
+    for(const id in sentV) if(state.inv[id] && state.inv[id].updatedAt===sentV[id]) delete state.pendV[id];
+    if(sentCfg) state.pendCfg=false;
     for(const id in sentL) if(state.lotes[id] && state.lotes[id].updatedAt===sentL[id]){ delete state.pend[id]; delete state.lotes[id].delTids; delete state.lotes[id].delOps; }
     for(const id in sentT) if(state.lect[id] && state.lect[id].updatedAt===sentT[id]) delete state.pendT[id];
     const d=desdeServidor(res.datos||{});
-    mergeServer(d.lotes, d.lects, d.incs, d.mants); state.lastSync=Date.now(); net="ok"; persist();
+    mergeServer(d.lotes, d.lects, d.incs, d.mants);
+    if(d.admin&&!state.pendCfg) state.cfgAdmin=d.admin;
+    if(d.inv) mergeInv(d.inv);
+    state.lastSync=Date.now(); net="ok"; persist();
     if(manual) toast("Sincronizado");
   }catch(e){ try{ console.warn("sync:", e&&e.message); }catch(_){} const m=e&&e.message; net = m==="clave" ? "badkey" : (m==="version" ? "oldscript" : "error"); if(manual) toast(net==="oldscript"?"Falta actualizar el script de Google":"No se pudo conectar. Se reintentará solo."); }
   finally{ syncing=false; updateSync(); if(view.name==="ajustes") render(); }
@@ -1443,6 +1724,10 @@ function mergeServer(list, lects, incs, mants){
     for(const id of Object.keys(state.mant)){ const x=state.mant[id]; if(!mids.has(id) && !state.pendM[id] && (x.synced||x.deleted)) delete state.mant[id]; } }
   persist(); if(!isForm() && view.name!=="ajustes") render();
 }
+function mergeInv(list){ const ids=new Set();
+  for(const s of list){ ids.add(s.id); if(state.pendV[s.id]) continue; const loc=state.inv[s.id]; state.inv[s.id]=Object.assign(s,{synced:true,deleted:false,updatedAt:loc?loc.updatedAt:0}); }
+  for(const id of Object.keys(state.inv)){ const x=state.inv[id]; if(!ids.has(id) && !state.pendV[id] && (x.synced||x.deleted)) delete state.inv[id]; }
+  persist(); if(!isForm() && view.name!=="ajustes") render(); }
 function updateSync(){
   const el=$("#sync"); if(!el) return; const n=pendCount(), pl=n>1?"s":"";
   let cls="off", txt;
