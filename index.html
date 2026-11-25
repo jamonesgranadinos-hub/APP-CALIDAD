@@ -209,7 +209,7 @@ const LOTES_COLS = ["Lote interno","Fecha entrada","Proveedor","Lote de origen",
 const TEST_COLS = ["Lote interno","Fecha","Nº testigo","Nº pieza","Tipo","Peso (kg)","Clasificación","Tª (ºC)","pH","Grasa","ETG","Observaciones"];
 const YN = [["prodConformes","¿Revisados conformes los productos?"],["docRevisada","¿Se ha revisado toda la documentación?"],["cumpleEspec","¿Documentación y proveedor cumplen las especificaciones?"],["aptoExport","¿Apto para exportación?"]];
 const LSKEY = "appcalidad.v1";
-const APP_VERSION = "3.17 · 25/11/2026";
+const APP_VERSION = "3.18 · 25/11/2026";
 const SINO = ["Productos revisados conformes","Documentación revisada","Cumple especificaciones","Apto exportación"];
 const TABLAS = {
   Lotes:{ cab:[...LOTES_COLS,"ID app"], k:"ID app", ocultas:["ID app"], orden:[["Fecha entrada",1]],
@@ -239,9 +239,9 @@ const mantFila = x => ({"Fecha":dmy(x.fecha),"Lote":x.lote,"Tipo":x.tipo||"","Ta
 TABLAS.Inventario={ cab:["Inventario","Fecha recuento","Sala","Lote","Tipo","Talla","Nº piezas","Peso medio (kg)","Kg","Hora registro","ID app","Orden sala","Orden talla"], k:"ID app",
   ocultas:["ID app","Orden sala","Orden talla"], orden:[["Inventario",1],["Orden sala",1],["Lote",1],["Tipo",1],["Orden talla",1]],
   fmt:{"Inventario":"@","Fecha recuento":"dd/mm/yyyy","Sala":"@","Lote":"@","Tipo":"@","Talla":"@","Nº piezas":"#,##0","Peso medio (kg)":"0.00","Kg":"#,##0.00","Hora registro":"@"} };
-TABLAS["Cámaras llenas"]={ cab:["Sala","Fecha llena","Subir Tª y bajar HR desde","Ajuste hecho","Fecha vaciada","Observaciones","ID app","Orden sala"], k:"ID app",
+TABLAS["Cámaras llenas"]={ cab:["Sala","Fecha llena","Subir Tª y bajar HR desde","Fin adaptación","Fecha vaciada","Observaciones","ID app","Orden sala"], k:"ID app",
   ocultas:["ID app","Orden sala"], orden:[["Fecha llena",-1],["Orden sala",1]],
-  fmt:{"Sala":"@","Fecha llena":"dd/mm/yyyy","Subir Tª y bajar HR desde":"dd/mm/yyyy","Ajuste hecho":"dd/mm/yyyy","Fecha vaciada":"dd/mm/yyyy","Observaciones":"@"} };
+  fmt:{"Sala":"@","Fecha llena":"dd/mm/yyyy","Subir Tª y bajar HR desde":"dd/mm/yyyy","Fin adaptación":"dd/mm/yyyy","Fecha vaciada":"dd/mm/yyyy","Observaciones":"@"} };
 TABLAS._Config={ cab:["Clave","Valor","ID app"], k:"ID app", fmt:{"Clave":"@","Valor":"@","ID app":"@"} };
 TABLAS.Incidencias={ cab:["Fecha","Hora","Sala","Tipo","Descripción","Foto","Origen","ID app","Orden"], k:"ID app", ocultas:["ID app","Orden"], orden:[["Fecha",1],["Hora",1]],
   fmt:{"Fecha":"dd/mm/yyyy","Hora":"@","Sala":"@","Tipo":"@","Descripción":"@","Foto":"@","Origen":"@"} };
@@ -379,9 +379,9 @@ function render(){
 /* ---------- Inicio ---------- */
 function vHome(){
   const av=avisosSal(), ac=avisosCam();
-  return `${ac.length?`<h2 style="margin-top:0">🌡️ Post salado: subir Tª y bajar HR</h2>${ac.map(c=>{ const f=fAjuste(c), tarde=f<today(), hoy=f===today();
-    return `<button class="aviso ${tarde?"tarde":""}" data-avcam="${c.sala}"><div style="flex:1"><b>${esc(salaCorta(c.sala))}</b><br>Llena desde el ${fmtD(c.fechaLlena)}</div>
-      <span class="tag ${tarde?"bad":"warn"}" style="font-size:17px">${tarde?"Tocaba el "+fmtD(f):(hoy?"Toca hoy":"Toca mañana")}</span></button>`; }).join("")}`:""}
+  return `${ac.length?`<h2 style="margin-top:0">🌡️ Post salado: subir Tª y bajar HR</h2>${ac.map(c=>{ const f=fAjuste(c), man=f>today();
+    return `<button class="aviso ${man?"":"tarde"}" data-avcam="${c.sala}"><div style="flex:1"><b>${esc(salaCorta(c.sala))}</b><br>${man?"Empieza mañana":`Hasta el ${fmtD(fFinAdapt(c))}`} · llena desde el ${fmtD(c.fechaLlena).slice(0,5)}</div>
+      <span class="tag ${man?"warn":"bad"}" style="font-size:17px">${man?"Mañana":`Día ${diaAdapt(c)} de ${DIAS_ADAPT}`}</span></button>`; }).join("")}`:""}
   ${av.length?`<h2 style="margin-top:0">🧂 Salidas de sal</h2>${av.map(a=>{ const tarde=a.f<today(), hoy=a.f===today();
     return `<button class="aviso ${tarde?"tarde":""}" data-avlote="${a.l.id}"><div style="flex:1"><b>Lote ${esc(a.l.loteInterno)}</b> · ${esc(salaCorta(a.sala))}<br>${esc(listaK(a.tallas))}</div>
       <span class="tag ${tarde?"bad":"warn"}" style="font-size:17px">${tarde?"Tocaba el "+fmtD(a.f):(hoy?"Sale hoy":"Sale mañana")}</span></button>`; }).join("")}`:""}
@@ -1177,38 +1177,41 @@ function vBuscar(){
    : `<div class="empty">No hay ningún lote «${esc(view.q)}» en la app.${enMant.length?`<br>Aparece en la manteca como: ${enMant.map(esc).join(", ")}.`:""}<br><br>Si es un lote antiguo, puedes darlo de alta en <b>Ubicación de lotes → Añadir lote anterior</b>.</div>`}`;
 }
 /* ---------- Cámaras de post salado: fecha de llenado y aviso a los 40 días ---------- */
-const DIAS_AJUSTE = 40;
+const DIAS_AJUSTE = 40, DIAS_ADAPT = 8;
 const PS_SALAS = SALAS.filter(x=>x.g==="Post salado");
 const camActiva = sala => Object.values(state.cam).filter(x=>!x.deleted&&x.sala===sala&&!x.fechaVacia).sort((a,b)=>b.fechaLlena.localeCompare(a.fechaLlena))[0]||null;
 const camHist = sala => Object.values(state.cam).filter(x=>!x.deleted&&x.sala===sala&&x.fechaVacia).sort((a,b)=>b.fechaLlena.localeCompare(a.fechaLlena));
 const fAjuste = c => addDays(c.fechaLlena, DIAS_AJUSTE);
+const fFinAdapt = c => addDays(fAjuste(c), DIAS_ADAPT-1);   // último día de adaptación
+const diaAdapt = c => diasEntre(fAjuste(c), today())+1;     // 1..8 durante la adaptación
 function commitCam(c){ c.updatedAt=Date.now(); state.cam[c.id]=c; state.pendC[c.id]=true; persist(); updateSync(); sync(); }
-function avisosCam(){ const m=addDays(today(),1); return PS_SALAS.map(x=>camActiva(x.c)).filter(c=>c&&!c.fechaAjuste&&fAjuste(c)<=m).sort((a,b)=>fAjuste(a).localeCompare(fAjuste(b))); }
+function avisosCam(){ const m=addDays(today(),1); return PS_SALAS.map(x=>camActiva(x.c)).filter(c=>c&&fAjuste(c)<=m&&fFinAdapt(c)>=today()).sort((a,b)=>fAjuste(a).localeCompare(fAjuste(b))); }
 function estadoCam(sala){ const c=camActiva(sala); if(!c) return {cls:"",txt:"Sin marcar como llena",c:null};
   const f=fAjuste(c), d=diasEntre(c.fechaLlena,today());
-  if(c.fechaAjuste) return {cls:"done",txt:`Llena · Tª y HR ajustadas el ${fmtD(c.fechaAjuste).slice(0,5)}`,c};
-  if(f<=today()) return {cls:"inc",txt:"Toca subir Tª y bajar HR",c};
+  if(fFinAdapt(c)<today()) return {cls:"done",txt:`Adaptación terminada el ${fmtD(fFinAdapt(c)).slice(0,5)}`,c};
+  if(f<=today()) return {cls:"inc",txt:`Subir Tª y bajar HR · día ${diaAdapt(c)} de ${DIAS_ADAPT}`,c};
+  if(f===addDays(today(),1)) return {cls:"inc",txt:"Mañana: subir Tª y bajar HR",c};
   return {cls:"done",txt:`Llena · ${d} de ${DIAS_AJUSTE} días`,c}; }
 function vCamara(){
   const x=SALA[view.sala], c=camActiva(x.c), h=camHist(x.c);
   const lotes=lotesVivos().map(l=>{ const u=ubicaciones(l), ts=tallasDe(l).filter(t=>u[t]&&u[t].dest===x.c); return ts.length?{l,ts,n:ts.reduce((a,t)=>a+l.tallas[t].n,0)}:null; }).filter(Boolean);
   let cuerpo;
   if(!c) cuerpo=`<div class="card">
-      <p style="margin-top:0;font-size:19px">Marca la cámara cuando quede <b>llena</b>. A los <b>${DIAS_AJUSTE} días</b> aparecerá un aviso en el inicio para subir la temperatura y bajar la humedad.</p>
+      <p style="margin-top:0;font-size:19px">Marca la cámara cuando quede <b>llena</b>. A los <b>${DIAS_AJUSTE} días</b> aparecerá un aviso en el inicio para subir la temperatura y bajar la humedad, y se mantendrá los <b>${DIAS_ADAPT} días</b> de adaptación.</p>
       <div class="f"><label class="l" for="cFecha">Fecha en que quedó llena</label><input class="in" type="date" id="cFecha" value="${today()}" max="${today()}"></div>
       <div class="f"><label class="l" for="cObs">Observaciones (opcional)</label><input class="in" id="cObs"></div>
       <div class="ferr" id="e_c"></div>
     </div>
     <div class="bar"><div class="in2"><button class="btn pri big" id="cLlena">✓ Marcar llena</button></div></div>`;
   else { const f=fAjuste(c), dd=diasEntre(today(),f), dia=diasEntre(c.fechaLlena,today());
-    cuerpo=`<div class="card" style="border-color:${c.fechaAjuste?"var(--ok)":(f<=today()?"var(--bad)":"var(--line)")}">
+    const fin=fFinAdapt(c), enAdapt=f<=today()&&fin>=today(), acabada=fin<today();
+    cuerpo=`<div class="card" style="border-color:${acabada?"var(--ok)":(enAdapt?"var(--bad)":"var(--line)")}">
       <div class="kv">
         <div><span>Llena desde</span><b>${fmtD(c.fechaLlena)} · ${dia===0?"hoy":`hace ${dia} día${dia>1?"s":""}`}</b></div>
-        <div><span>Subir Tª y bajar HR</span><b>${c.fechaAjuste?`✓ Hecho el ${fmtD(c.fechaAjuste)}`:(dd>0?`El ${fmtD(f)} (faltan ${dd} día${dd>1?"s":""})`:(dd===0?`Hoy, ${fmtD(f)}`:`Desde el ${fmtD(f)} (hace ${-dd} día${dd<-1?"s":""})`))}</b></div>
+        <div><span>Subir Tª y bajar HR</span><b>${dd>0?`Desde el ${fmtD(f)} (faltan ${dd} día${dd>1?"s":""})`:(acabada?`✓ Adaptación del ${fmtD(f)} al ${fmtD(fin)}`:`Adaptación: día ${diaAdapt(c)} de ${DIAS_ADAPT} (hasta el ${fmtD(fin)})`)}</b></div>
         ${c.obs?`<div><span>Observaciones</span><b>${esc(c.obs)}</b></div>`:""}
       </div></div>
     <div class="card" style="display:flex;flex-direction:column;gap:12px">
-      ${c.fechaAjuste?`<button class="btn" id="cDeshacer" style="width:100%">Desmarcar el ajuste de Tª y HR</button>`:`<button class="btn pri big" id="cAjuste">✓ Ya hemos subido la Tª y bajado la HR</button>`}
       <div class="f" style="margin:0"><label class="l" for="cFecha">Corregir la fecha de llena</label><div class="row"><input class="in grow" type="date" id="cFecha" value="${c.fechaLlena}" max="${today()}" style="width:auto;flex:1"><button class="btn" id="cCorregir">Guardar fecha</button></div></div>
       <button class="btn" id="cVacia" style="width:100%">Cámara vaciada (empieza un ciclo nuevo)</button>
       <button class="btn danger" id="cQuitar" style="width:100%">Quitar la marca (me equivoqué)</button>
@@ -1218,7 +1221,7 @@ function vCamara(){
   ${cuerpo}
   <h2>Lotes en esta cámara <span class="muted" style="font-size:18px;font-weight:500">· ${fmtN(lotes.reduce((a,y)=>a+y.n,0),0)} piezas</span></h2>
   ${lotes.length?`<div class="list">${lotes.map(y=>`<button class="card lote" data-lote="${y.l.id}"><div><div class="li">Lote ${esc(y.l.loteInterno)}</div><div class="meta">${esc(listaK(y.ts))} · ${fmtN(y.n,0)} piezas</div></div></button>`).join("")}</div>`:`<div class="empty">Ningún lote ubicado aquí ahora mismo.</div>`}
-  ${h.length?`<h2>Ciclos anteriores</h2><div class="card"><div class="kv">${h.slice(0,6).map(y=>`<div><span>Llena ${fmtD(y.fechaLlena)}</span><b>${y.fechaAjuste?"Ajuste "+fmtD(y.fechaAjuste):"Sin ajuste"} · vaciada ${fmtD(y.fechaVacia)}</b></div>`).join("")}</div></div>`:""}`;
+  ${h.length?`<h2>Ciclos anteriores</h2><div class="card"><div class="kv">${h.slice(0,6).map(y=>`<div><span>Llena ${fmtD(y.fechaLlena)}</span><b>vaciada ${fmtD(y.fechaVacia)}</b></div>`).join("")}</div></div>`:""}`;
 }
 function vUbic(){
   const mapa={};
@@ -1230,7 +1233,7 @@ function vUbic(){
   <p class="muted" style="font-size:16px;margin-top:4px">Para lotes que entraron antes de usar la app: solo se apuntan sus tallas y dónde están.</p>
   <h2>Cámaras de post salado</h2>
   <div class="salas">${PS_SALAS.map(x=>{ const e=estadoCam(x.c); return `<button class="sala ${e.cls}" data-cam="${x.c}"><span class="sn">${esc(x.s)}</span>${e.c?`<span class="sv">Llena el ${fmtD(e.c.fechaLlena).slice(0,5)}</span>`:""}<span class="ss" style="${e.c?"":"color:var(--muted)"}">${e.txt}</span></button>`; }).join("")}</div>
-  <p class="muted" style="font-size:16px;margin-top:4px">Toca una cámara para marcarla llena. A los ${DIAS_AJUSTE} días avisa en el inicio para subir la temperatura y bajar la humedad.</p>
+  <p class="muted" style="font-size:16px;margin-top:4px">Toca una cámara para marcarla llena. A los ${DIAS_AJUSTE} días avisa en el inicio para subir la temperatura y bajar la humedad durante los ${DIAS_ADAPT} días de adaptación.</p>
   ${salas.length?salas.map(c=>{ const ls=Object.values(mapa[c]); const tot=ls.reduce((a,x)=>a+x.ts.reduce((b,t)=>b+x.l.tallas[t].n,0),0);
     return `<h2>${c==="_"?"Sin ubicar todavía":esc(SALA[c].n)} <span class="muted" style="font-size:18px;font-weight:500">· ${fmtN(tot,0)} piezas</span></h2><div class="list">
     ${ls.map(x=>`<button class="card lote" data-lote="${x.l.id}"><div><div class="li">Lote ${esc(x.l.loteInterno)}${x.l.anterior?' <span class="tag">Anterior</span>':""}${state.pend[x.l.id]?'<span class="dot" title="Pendiente de enviar"></span>':""}</div>
@@ -1392,8 +1395,6 @@ function bindView(){
         commitCam({id:uid(),sala,salaNombre:SALA[sala].n,ordenSala:SALA[sala].o,fechaLlena:f,fechaAjuste:"",fechaVacia:"",obs:$("#cObs").value.trim(),deleted:false});
         toast(`Llena · aviso el ${fmtD(addDays(f,DIAS_AJUSTE)).slice(0,5)}`); render(); }; }
     else {
-      const aj=$("#cAjuste"); if(aj) aj.onclick=async()=>{ if(await ask(`¿Confirmas que en ${salaCorta(sala)} ya se ha subido la temperatura y bajado la humedad?`,"Sí, hecho")){ commitCam(Object.assign({},c,{fechaAjuste:today()})); toast("Ajuste apuntado"); render(); } };
-      const dh=$("#cDeshacer"); if(dh) dh.onclick=()=>{ commitCam(Object.assign({},c,{fechaAjuste:""})); toast("Ajuste desmarcado"); render(); };
       $("#cCorregir").onclick=()=>{ const f=fechaOk(); if(!f) return; commitCam(Object.assign({},c,{fechaLlena:f})); toast("Fecha corregida"); render(); };
       $("#cVacia").onclick=async()=>{ if(await ask(`¿${salaCorta(sala)} se ha vaciado? Se cierra este ciclo y podrás marcarla llena otra vez cuando toque.`,"Sí, vaciada")){ commitCam(Object.assign({},c,{fechaVacia:today()})); toast("Ciclo cerrado"); render(); } };
       $("#cQuitar").onclick=async()=>{ if(await ask(`¿Quitar la marca de cámara llena de ${salaCorta(sala)}?`,"Quitar")){ commitCam(Object.assign({},c,{deleted:true})); toast("Marca quitada"); render(); } };
@@ -1702,7 +1703,7 @@ function desdeServidor(datos){
     return {id,inventario:sv(r["Inventario"]),fecha:sv(r["Fecha recuento"]),sala:sc?sc.c:"",salaNombre:sv(r["Sala"]),ordenSala:sc?sc.o:0,lote:sv(r["Lote"]),tipo:sv(r["Tipo"]),talla:sv(r["Talla"]),
       piezas:nv(r["Nº piezas"]),pesoMedio:nv(r["Peso medio (kg)"]),hora:sv(r["Hora registro"])}; }).filter(Boolean) : null;
   const cams = datos["Cámaras llenas"] ? objetos(datos["Cámaras llenas"]).map(r=>{ const id=sv(r["ID app"]); if(!id) return null; const sc=SALAS.find(x=>x.n===sv(r["Sala"]));
-    return sc&&{id,sala:sc.c,salaNombre:sc.n,ordenSala:sc.o,fechaLlena:sv(r["Fecha llena"]),fechaAjuste:sv(r["Ajuste hecho"]),fechaVacia:sv(r["Fecha vaciada"]),obs:sv(r["Observaciones"])}; }).filter(Boolean) : null;
+    return sc&&{id,sala:sc.c,salaNombre:sc.n,ordenSala:sc.o,fechaLlena:sv(r["Fecha llena"]),fechaVacia:sv(r["Fecha vaciada"]),obs:sv(r["Observaciones"])}; }).filter(Boolean) : null;
   return {lotes:Object.values(lotes), lects, incs, mants, admin, inv, cams};
 }
 async function sync(manual){
@@ -1741,7 +1742,7 @@ async function sync(manual){
     Object.keys(state.pendC).forEach(id=>{ if(!state.cam[id]) delete state.pendC[id]; });
     for(const id of Object.keys(state.pendC)){ const x=state.cam[id]; sentC[id]=x.updatedAt;
       if(x.deleted) del.push({t:"Cámaras llenas",col:"ID app",val:id});
-      else put.push({t:"Cámaras llenas",fila:{"Sala":x.salaNombre,"Fecha llena":dmy(x.fechaLlena),"Subir Tª y bajar HR desde":dmy(fAjuste(x)),"Ajuste hecho":dmy(x.fechaAjuste),"Fecha vaciada":dmy(x.fechaVacia),"Observaciones":x.obs||"","ID app":id,"Orden sala":x.ordenSala}}); }
+      else put.push({t:"Cámaras llenas",fila:{"Sala":x.salaNombre,"Fecha llena":dmy(x.fechaLlena),"Subir Tª y bajar HR desde":dmy(fAjuste(x)),"Fin adaptación":dmy(fFinAdapt(x)),"Fecha vaciada":dmy(x.fechaVacia),"Observaciones":x.obs||"","ID app":id,"Orden sala":x.ordenSala}}); }
     const sentM={};
     Object.keys(state.pendM).forEach(id=>{ if(!state.mant[id]) delete state.pendM[id]; });
     for(const id of Object.keys(state.pendM)){ const x=state.mant[id]; sentM[id]=x.updatedAt;
