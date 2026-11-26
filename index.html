@@ -209,7 +209,7 @@ const LOTES_COLS = ["Lote interno","Fecha entrada","Proveedor","Lote de origen",
 const TEST_COLS = ["Lote interno","Fecha","Nº testigo","Nº pieza","Tipo","Peso (kg)","Clasificación","Tª (ºC)","pH","Grasa","ETG","Observaciones"];
 const YN = [["prodConformes","¿Revisados conformes los productos?"],["docRevisada","¿Se ha revisado toda la documentación?"],["cumpleEspec","¿Documentación y proveedor cumplen las especificaciones?"],["aptoExport","¿Apto para exportación?"]];
 const LSKEY = "appcalidad.v1";
-const APP_VERSION = "3.18 · 25/11/2026";
+const APP_VERSION = "3.19 · 26/11/2026";
 const SINO = ["Productos revisados conformes","Documentación revisada","Cumple especificaciones","Apto exportación"];
 const TABLAS = {
   Lotes:{ cab:[...LOTES_COLS,"ID app"], k:"ID app", ocultas:["ID app"], orden:[["Fecha entrada",1]],
@@ -236,9 +236,9 @@ TABLAS["Lotes anteriores"]={ cab:["Lote interno","Fecha entrada","Observaciones"
 TABLAS.Manteca={ cab:["Fecha","Lote","Tipo","Talla","Nº piezas","Hora registro","ID app","ID lote"], k:"ID app", ocultas:["ID app","ID lote"], orden:[["Fecha",1],["Hora registro",1]],
   fmt:{"Fecha":"dd/mm/yyyy","Lote":"@","Tipo":"@","Talla":"@","Nº piezas":"0","Hora registro":"@"} };
 const mantFila = x => ({"Fecha":dmy(x.fecha),"Lote":x.lote,"Tipo":x.tipo||"","Talla":x.talla,"Nº piezas":x.piezas,"Hora registro":x.hora,"ID app":x.id,"ID lote":x.loteId||""});
-TABLAS.Inventario={ cab:["Inventario","Fecha recuento","Sala","Lote","Tipo","Talla","Nº piezas","Peso medio (kg)","Kg","Hora registro","ID app","Orden sala","Orden talla"], k:"ID app",
+TABLAS.Inventario={ cab:["Inventario","Fecha recuento","Sala","Lote","Tipo","Talla","Palets","Piezas sueltas","Nº piezas","Peso medio (kg)","Kg","Hora registro","ID app","Orden sala","Orden talla"], k:"ID app",
   ocultas:["ID app","Orden sala","Orden talla"], orden:[["Inventario",1],["Orden sala",1],["Lote",1],["Tipo",1],["Orden talla",1]],
-  fmt:{"Inventario":"@","Fecha recuento":"dd/mm/yyyy","Sala":"@","Lote":"@","Tipo":"@","Talla":"@","Nº piezas":"#,##0","Peso medio (kg)":"0.00","Kg":"#,##0.00","Hora registro":"@"} };
+  fmt:{"Inventario":"@","Fecha recuento":"dd/mm/yyyy","Sala":"@","Lote":"@","Tipo":"@","Talla":"@","Palets":"0","Piezas sueltas":"0","Nº piezas":"#,##0","Peso medio (kg)":"0.00","Kg":"#,##0.00","Hora registro":"@"} };
 TABLAS["Cámaras llenas"]={ cab:["Sala","Fecha llena","Subir Tª y bajar HR desde","Fin adaptación","Fecha vaciada","Observaciones","ID app","Orden sala"], k:"ID app",
   ocultas:["ID app","Orden sala"], orden:[["Fecha llena",-1],["Orden sala",1]],
   fmt:{"Sala":"@","Fecha llena":"dd/mm/yyyy","Subir Tª y bajar HR desde":"dd/mm/yyyy","Fin adaptación":"dd/mm/yyyy","Fecha vaciada":"dd/mm/yyyy","Observaciones":"@"} };
@@ -365,7 +365,7 @@ function render(){
   else if(view.name==="ubic") app.innerHTML = vUbic();
   else if(view.name==="buscar") app.innerHTML = vBuscar();
   else if(view.name==="camara") app.innerHTML = vCamara();
-  else if(view.name.startsWith("inv")) app.innerHTML = adminSesion()||view.name==="invLogin" ? ({inv:vInv,invSala:vInvSala,invForm:vInvForm,invLogin:vInvLogin,invClave:vInvClave,invNuevo:vInvNuevo}[view.name]||vInv)() : vInvLogin();
+  else if(view.name.startsWith("inv")) app.innerHTML = adminSesion()||view.name==="invLogin" ? ({inv:vInv,invSala:vInvSala,invForm:vInvForm,invAuto:vInvAuto,invLogin:vInvLogin,invClave:vInvClave,invNuevo:vInvNuevo}[view.name]||vInv)() : vInvLogin();
   else if(view.name==="escanear") app.innerHTML = vEscanear();
   else if(view.name==="traz") app.innerHTML = vTraz();
   else if(view.name==="antForm") app.innerHTML = vAntForm();
@@ -839,6 +839,23 @@ const invNombres = () => [...new Set(Object.values(state.inv).filter(x=>!x.delet
 const kgLinea = x => (x.piezas!=null&&x.pesoMedio!=null) ? Math.round(x.piezas*x.pesoMedio*100)/100 : null;
 function sumar(ls){ let p=0,k=0,sinPeso=0; ls.forEach(x=>{ p+=x.piezas||0; const kk=kgLinea(x); if(kk==null) sinPeso+=x.piezas||0; else k+=kk; }); return {p,k:Math.round(k*100)/100,sinPeso}; }
 function commitInv(x){ x.updatedAt=Date.now(); state.inv[x.id]=x; state.pendV[x.id]=true; persist(); updateSync(); sync(); }
+const PALET = 60;
+const FASES = ["Salazón","Post salado","Sin ubicar","Bodegas","Estufajes"];
+const FASES_AUTO = ["Salazón","Post salado"];
+const AUTO_SALAS = SALAS.filter(x=>FASES_AUTO.includes(x.g));
+// Existencias que la app ya conoce por los movimientos: salazón, post salado y lo pendiente de ubicar
+function lineasAuto(){ const r=[];
+  lotesVivos().forEach(l=>{ const u=ubicaciones(l), pm=(l.pesoTotal>0&&l.nPiezas>0)?Math.round(l.pesoTotal/l.nPiezas*100)/100:null, ks=tallasDe(l);
+    const base={auto:true,loteId:l.id,lote:l.loteInterno,pesoMedio:pm};
+    if(!ks.length){ if(!l.anterior&&l.nPiezas>0) r.push(Object.assign({},base,{fase:"Sin ubicar",sala:"",tipo:"",talla:"Sin clasificar",piezas:l.nPiezas})); return; }
+    ks.forEach(k=>{ const d=u[k]&&u[k].dest, g=d&&SALA[d]?SALA[d].g:"";
+      if(FASES_AUTO.includes(g)) r.push(Object.assign({},base,{fase:g,sala:d,tipo:kTipo(k),talla:kTalla(k),piezas:l.tallas[k].n}));
+      else if(!d) r.push(Object.assign({},base,{fase:"Sin ubicar",sala:"",tipo:kTipo(k),talla:kTalla(k),piezas:l.tallas[k].n})); }); });
+  return r; }
+const faseDe = x => x.auto ? x.fase : (SALA[x.sala]?SALA[x.sala].g:"Bodegas");
+// lote contado en bodega/estufaje que según la app sigue en salazón o post salado
+function dobles(auto){ const enApp={}; (auto||lineasAuto()).filter(x=>x.fase!=="Sin ubicar").forEach(x=>{ const k=normLI(x.lote); (enApp[k]=enApp[k]||new Set()).add(x.sala); });
+  const r={}; invLineas().forEach(y=>{ const k=normLI(y.lote); if(enApp[k]) r[k]=[...enApp[k]]; }); return r; }
 const kgTxt = t => t.k||!t.sinPeso ? fmtN(t.k,2)+" kg"+(t.sinPeso?` <span class="tag warn">${fmtN(t.sinPeso,0)} pzs sin peso</span>`:"") : `<span class="tag warn">sin peso medio</span>`;
 
 function vInvLogin(){
@@ -886,33 +903,60 @@ function vInvNuevo(){
   <div class="bar"><div class="in2"><button class="btn pri big" id="nInvOk">Empezar inventario</button></div></div>`;
 }
 function vInv(){
-  const inv=invActual(), ls=invLineas(inv), tot=sumar(ls), lotes={};
-  ls.forEach(x=>{ (lotes[x.lote]=lotes[x.lote]||[]).push(x); });
-  const grupos=[...new Set(INV_SALAS.map(x=>x.g))];
+  const inv=invActual(), man=invLineas(inv), auto=lineasAuto(), todo=man.concat(auto), tot=sumar(todo), dob=dobles(auto), lotes={};
+  todo.forEach(x=>{ const k=normLI(x.lote); (lotes[k]=lotes[k]||[]).push(x); });
+  const porFase=FASES.map(f=>({f,t:sumar(todo.filter(x=>faseDe(x)===f))})).filter(o=>o.t.p||!["Sin ubicar"].includes(o.f));
+  const tileAuto=x=>{ const t=sumar(auto.filter(y=>y.sala===x.c)); return `<button class="sala ${t.p?"done":""}" data-iauto="${x.c}"><span class="sn">${esc(x.s)}</span>${t.p?`<span class="sv">${fmtN(t.p,0)} piezas</span>`:""}<span class="ss" style="color:${t.p?"var(--ok)":"var(--muted)"}">${t.p?"Según la app":"Vacía en la app"}</span></button>`; };
+  const nDob=Object.keys(dob).length, sinU=auto.filter(x=>x.fase==="Sin ubicar");
   return `<button class="back" data-go="home">← Inicio</button>
   <div class="row"><h1 class="grow" style="margin-bottom:8px">🔒 Inventario</h1></div>
   <div class="row" style="margin-bottom:14px"><select class="in grow" id="invSel" style="width:auto;flex:1">${invNombres().map(n=>`<option${n===inv?" selected":""}>${esc(n)}</option>`).join("")}</select><button class="btn" id="invNuevo">＋ Nuevo</button></div>
+  <p class="muted" style="margin:0 0 6px;font-size:16px;font-weight:600">TOTAL DISPONIBLE</p>
   <div class="stats" style="grid-template-columns:repeat(3,1fr)">
     <div class="stat"><b>${fmtN(tot.p,0)}</b><span>Piezas</span></div>
     <div class="stat"><b>${fmtN(tot.k,0)}</b><span>Kg${tot.sinPeso?" (parcial)":""}</span></div>
     <div class="stat"><b>${Object.keys(lotes).length}</b><span>Lotes</span></div>
   </div>
-  ${grupos.map(g=>`<h2>${g}</h2><div class="salas">${INV_SALAS.filter(x=>x.g===g).map(x=>{ const t=sumar(ls.filter(y=>y.sala===x.c));
+  <div class="card" style="padding:0;overflow:hidden"><table class="t" style="width:100%"><thead><tr><th>Fase</th><th>Piezas</th><th>Kg</th></tr></thead><tbody>
+    ${porFase.map(o=>`<tr><td><b>${o.f}</b><br><span class="muted" style="font-size:14px">${FASES_AUTO.includes(o.f)||o.f==="Sin ubicar"?"De la app":"Contado"}</span></td><td class="num">${fmtN(o.t.p,0)}</td><td class="num">${o.t.p?fmtN(o.t.k,0):"—"}${o.t.sinPeso?`<br><span class="tag warn" style="font-size:13px">${fmtN(o.t.sinPeso,0)} sin peso</span>`:""}</td></tr>`).join("")}
+  </tbody></table></div>
+  ${nDob?`<div class="card" style="border-color:var(--bad);background:var(--bad-bg,#fdecee)"><b>⚠ Posible doble conteo</b><br>${Object.keys(dob).map(k=>`Lote ${esc(k)}: contado en bodega/estufaje y en la app sigue en ${dob[k].map(salaCorta).join(", ")}`).join("<br>")}<p class="muted" style="margin:8px 0 0;font-size:16px">Si ya salió de ahí, corrige su ubicación en la APP CALIDAD (toca la cámara de abajo y el lote).</p></div>`:""}
+  <h2>Salazón y post salado <span class="muted" style="font-size:17px;font-weight:500">· automático</span></h2>
+  <div class="salas">${AUTO_SALAS.map(tileAuto).join("")}</div>
+  ${sinU.length?`<button class="card" data-iauto="SINU" style="width:100%;text-align:left;margin-top:12px;border-color:var(--warn,#d9a400)"><b>Sin ubicar en la app: ${fmtN(sumar(sinU).p,0)} piezas</b><br><span class="muted">Lotes o tallas sin cámara asignada. Toca para revisarlos.</span></button>`:""}
+  <p class="muted" style="font-size:16px;margin-top:6px">Sale de Ubicación de lotes. Si algo no cuadra con lo que ves, toca la cámara y corrige el lote.</p>
+  ${["Bodegas","Estufajes"].map(g=>`<h2>${g} <span class="muted" style="font-size:17px;font-weight:500">· recuento</span></h2><div class="salas">${INV_SALAS.filter(x=>x.g===g).map(x=>{ const t=sumar(man.filter(y=>y.sala===x.c));
     return `<button class="sala ${t.p?"done":"pend"}" data-isala="${x.c}"><span class="sn">${esc(x.s)}</span>${t.p?`<span class="sv">${fmtN(t.p,0)} piezas</span><span class="sv">${fmtN(t.k,0)} kg</span>`:""}<span class="ss" style="color:${t.p?"var(--ok)":"var(--muted)"}">${t.p?"✓ Con datos":"Sin contar"}</span></button>`; }).join("")}</div>`).join("")}
   <h2>Por lote</h2>
-  ${Object.keys(lotes).length?`<div class="list">${Object.keys(lotes).sort().map(lt=>{ const xs=lotes[lt], t=sumar(xs), sl=[...new Set(xs.map(x=>x.sala))], enCal=loteDeNombre(lt);
-    return `<div class="card"><div style="font-size:22px;font-weight:700;font-family:var(--display)">Lote ${esc(lt)}</div>
+  ${Object.keys(lotes).length?`<div class="list">${Object.keys(lotes).sort().map(lt=>{ const xs=lotes[lt], t=sumar(xs), mm=xs.filter(x=>!x.auto), enCal=loteDeNombre(lt);
+    const fs=FASES.map(f=>{ const ys=xs.filter(x=>faseDe(x)===f); if(!ys.length) return ""; const sl=[...new Set(ys.map(y=>y.sala).filter(Boolean))];
+      return `<div class="meta">${f}${sl.length?" ("+sl.map(salaCorta).join(", ")+")":""}: <b>${fmtN(sumar(ys).p,0)}</b> pzs</div>`; }).join("");
+    return `<div class="card"${dob[lt]?' style="border-color:var(--bad)"':""}><div style="font-size:22px;font-weight:700;font-family:var(--display)">Lote ${esc(lt)}${dob[lt]?' <span class="tag bad">doble conteo?</span>':""}</div>
       <div class="meta">${[...new Set(xs.map(x=>x.tipo).filter(Boolean))].map(esc).join(" · ")||"Sin tipo"}</div>
-      <div class="meta">📍 ${sl.map(c=>esc(salaCorta(c))).join(" · ")}</div>
-      <div style="margin:4px 0 12px"><b style="font-size:20px">${fmtN(t.p,0)}</b> <span class="muted">piezas ·</span> <b>${kgTxt(t)}</b></div>
-      <button class="btn ${enCal?"":"pri"}" data-tras="${esc(lt)}" style="width:100%;min-height:52px;font-size:18px">${enCal?"↻ Actualizar en la APP CALIDAD":"→ Pasar a la APP CALIDAD"}</button></div>`; }).join("")}</div>`
-  : `<div class="empty">Todavía no hay nada contado en este inventario. Toca una bodega o un estufaje para empezar.</div>`}
+      ${fs}
+      <div style="margin:4px 0 ${mm.length?12:0}px"><b style="font-size:20px">${fmtN(t.p,0)}</b> <span class="muted">piezas ·</span> <b>${kgTxt(t)}</b></div>
+      ${mm.length?`<button class="btn ${enCal?"":"pri"}" data-tras="${esc(mm[0].lote)}" style="width:100%;min-height:52px;font-size:18px">${enCal?"↻ Actualizar bodegas en la APP CALIDAD":"→ Pasar a la APP CALIDAD"}</button>`:""}</div>`; }).join("")}</div>`
+  : `<div class="empty">Todavía no hay existencias. Toca una bodega o un estufaje para empezar a contar.</div>`}
   <h2>Exportar y cerrar</h2>
   <div class="card" style="display:flex;flex-direction:column;gap:12px">
     <button class="btn pri big" id="invExcel">⬇ Excel para contabilidad</button>
-    ${Object.keys(lotes).length?`<button class="btn" id="invTrasTodo" style="width:100%">→ Pasar todos los lotes a la APP CALIDAD</button>`:""}
+    ${man.length?`<button class="btn" id="invTrasTodo" style="width:100%">→ Pasar todos los lotes contados a la APP CALIDAD</button>`:""}
     <div class="row"><button class="btn grow" id="invClave" style="width:auto">Cambiar contraseña</button><button class="btn danger grow" id="invSalir" style="width:auto">Cerrar sesión</button></div>
   </div>`;
+}
+function vInvAuto(){
+  const c=view.sala, ls=lineasAuto().filter(x=>c==="SINU"?x.fase==="Sin ubicar":x.sala===c), t=sumar(ls), g={};
+  ls.forEach(x=>{ (g[x.loteId]=g[x.loteId]||[]).push(x); });
+  return `<button class="back" data-go="inv">← Inventario</button>
+  <h1 style="margin-bottom:4px">${c==="SINU"?"Sin ubicar en la app":esc(SALA[c].n)}</h1><p class="muted" style="margin-top:0">Según la APP CALIDAD · ${fmtN(t.p,0)} piezas · ${kgTxt(t)}</p>
+  ${Object.keys(g).length?`<div class="list">${Object.keys(g).map(id=>{ const xs=g[id].slice().sort((a,b)=>(a.tipo||"").localeCompare(b.tipo||"")||TALLAS.indexOf(a.talla)-TALLAS.indexOf(b.talla)), tt=sumar(xs);
+    return `<button class="card" data-lote="${id}" style="text-align:left;width:100%;cursor:pointer">
+      <div style="font-size:22px;font-weight:700;font-family:var(--display)">Lote ${esc(xs[0].lote)}</div>
+      <div style="margin-top:4px"><b style="font-size:20px">${fmtN(tt.p,0)}</b> <span class="muted">piezas ·</span> <b>${kgTxt(tt)}</b></div>
+      <div class="tw" style="margin-top:10px;border-width:1px"><table class="t"><thead><tr><th>Talla</th><th>Piezas</th></tr></thead><tbody>
+      ${xs.map(y=>`<tr><td><b>${esc(y.tipo?y.tipo+" · ":"")}${y.talla}</b></td><td class="num">${fmtN(y.piezas,0)}</td></tr>`).join("")}</tbody></table></div>
+      <div class="muted" style="font-size:15px;margin-top:8px">${xs[0].pesoMedio!=null?`Kg con el peso medio de entrada (${fmtN(xs[0].pesoMedio,2)} kg/pieza)`:"Sin peso de entrada en el lote"} · Toca para ver o corregir el lote</div></button>`; }).join("")}</div>`
+  : `<div class="empty">Según la app no hay piezas aquí.</div>`}`;
 }
 function vInvSala(){
   const x=SALA[view.sala], ls=invLineas().filter(y=>y.sala===x.c), t=sumar(ls), g={};
@@ -925,7 +969,7 @@ function vInvSala(){
       <div style="font-size:22px;font-weight:700;font-family:var(--display)">Lote ${esc(xs[0].lote)}${xs.some(y=>state.pendV[y.id])?'<span class="dot" title="Pendiente de enviar"></span>':""}</div><div class="meta">${esc(xs[0].tipo||"Sin tipo")}</div>
       <div style="margin-top:4px"><b style="font-size:20px">${fmtN(tt.p,0)}</b> <span class="muted">piezas ·</span> <b>${kgTxt(tt)}</b></div>
       <div class="tw" style="margin-top:10px;border-width:1px"><table class="t"><thead><tr><th>Talla</th><th>Piezas</th><th>Peso medio</th><th>Kg</th></tr></thead><tbody>
-      ${xs.map(y=>`<tr><td><b>${y.talla}</b></td><td class="num">${fmtN(y.piezas,0)}</td><td class="num">${y.pesoMedio!=null?fmtN(y.pesoMedio,2)+" kg":"—"}</td><td class="num">${kgLinea(y)!=null?fmtN(kgLinea(y),2):"—"}</td></tr>`).join("")}
+      ${xs.map(y=>`<tr><td><b>${y.talla}</b></td><td class="num">${fmtN(y.piezas,0)}${y.palets?`<br><span class="muted" style="font-size:13px">${y.palets} pal.${y.sueltas?" + "+y.sueltas:""}</span>`:""}</td><td class="num">${y.pesoMedio!=null?fmtN(y.pesoMedio,2)+" kg":"—"}</td><td class="num">${kgLinea(y)!=null?fmtN(kgLinea(y),2):"—"}</td></tr>`).join("")}
       </tbody></table></div></button>`; }).join("")}</div>
     <p class="muted" style="font-size:16px">Toca un lote para corregirlo.</p>`
   : `<div class="empty">Esta sala está sin contar.</div>`}`;
@@ -940,35 +984,42 @@ function vInvForm(){
       <div class="f"><label class="l" for="vFecha">Fecha del recuento</label><input class="in" type="date" id="vFecha" value="${esc(d.fecha)}"></div>
     </div>
     <div class="f"><label class="l" for="vTipo">Tipo de producto</label><select class="in" id="vTipo"><option value="">— Sin especificar —</option>${TIPOS.concat(d.tipo&&!TIPOS.includes(d.tipo)?[d.tipo]:[]).map(t=>`<option value="${esc(t)}"${d.tipo===t?" selected":""}>${esc(t)}</option>`).join("")}</select></div>
-    <div class="tgrid" style="grid-template-columns:60px 1fr 1fr 1fr"><div class="th" style="text-align:center">Talla</div><div class="th">Nº piezas</div><div class="th">Peso medio (kg)</div><div class="th">Kg</div>
-    ${TALLAS.map(t=>`<div class="tl">${t}</div><input class="in" data-vp="${t}" inputmode="numeric" value="${d.p[t]??""}"><input class="in" data-vk="${t}" inputmode="decimal" value="${d.k[t]!=null?String(d.k[t]).replace(".",","):""}"><div class="num" data-vt="${t}" style="font-weight:700;font-size:19px"></div>`).join("")}</div>
+    <div id="vDob"></div>
+    <p class="muted" style="margin:0 0 10px;font-size:16px">Palets de ${PALET} piezas. Si un palet no está completo, sus piezas van en «Sueltas».</p>
+    <div class="tgrid" style="grid-template-columns:48px 1fr 1fr 1.15fr;gap:8px 8px"><div class="th" style="text-align:center">Talla</div><div class="th">Palets</div><div class="th">Sueltas</div><div class="th">Peso medio (kg)</div>
+    ${TALLAS.map(t=>`<div class="tl">${t}</div><input class="in" data-vl="${t}" inputmode="numeric" value="${d.l[t]??""}"><input class="in" data-vp="${t}" inputmode="numeric" value="${d.p[t]??""}"><input class="in" data-vk="${t}" inputmode="decimal" value="${d.k[t]!=null?String(d.k[t]).replace(".",","):""}"><div class="num" data-vt="${t}" style="grid-column:2/-1;font-weight:700;font-size:17px;margin:-4px 0 4px;color:var(--marca-azul)"></div>`).join("")}</div>
     <p id="vTot" style="font-size:20px;font-weight:700;margin-bottom:0"></p><div class="ferr" id="e_vT"></div>
   </div>
   ${d.editando?`<div style="margin-top:22px"><button type="button" class="btn danger" id="vDel">Quitar este lote de la sala</button></div>`:""}
   </form>
   <div class="bar"><div class="in2">${d.editando?"":`<button class="btn big" id="vNext">Guardar y otro lote</button>`}<button class="btn pri big" id="vSave">Guardar</button></div></div>`;
 }
+const salasApp = lote => [...new Set(lineasAuto().filter(x=>x.fase!=="Sin ubicar"&&normLI(x.lote)===normLI(lote)).map(x=>x.sala))];
 function guardarInv(seguir){
   const d=draft; d.lote=$("#vLote").value.trim().toUpperCase(); d.fecha=$("#vFecha").value||today(); d.tipo=$("#vTipo").value;
   let bad=false; $("#e_vLote").textContent=""; $("#e_vT").textContent="";
   if(!d.lote){ $("#vLote").classList.add("err"); $("#e_vLote").textContent="Escribe el lote"; bad=true; }
   const nuevo={};
-  TALLAS.forEach(t=>{ const ip=document.querySelector(`[data-vp="${t}"]`), ik=document.querySelector(`[data-vk="${t}"]`), p=parseNum(ip.value), k=parseNum(ik.value);
-    [ip,ik].forEach(e=>e.classList.remove("err"));
+  TALLAS.forEach(t=>{ const il=document.querySelector(`[data-vl="${t}"]`), ip=document.querySelector(`[data-vp="${t}"]`), ik=document.querySelector(`[data-vk="${t}"]`), pl=parseNum(il.value), p=parseNum(ip.value), k=parseNum(ik.value);
+    [il,ip,ik].forEach(e=>e.classList.remove("err"));
+    if(Number.isNaN(pl)||(pl!=null&&(pl<0||!Number.isInteger(pl)))){ il.classList.add("err"); bad=true; }
     if(Number.isNaN(p)||(p!=null&&(p<0||!Number.isInteger(p)))){ ip.classList.add("err"); bad=true; }
     if(Number.isNaN(k)||(k!=null&&k<0)){ ik.classList.add("err"); bad=true; }
-    if(p>0) nuevo[t]={piezas:p,pesoMedio:Number.isNaN(k)?null:k}; });
+    const tot=(pl>0?pl*PALET:0)+(p>0?p:0);
+    if(tot>0) nuevo[t]={palets:pl>0?pl:null,sueltas:p>0?p:null,piezas:tot,pesoMedio:Number.isNaN(k)?null:k}; });
   if(!bad&&!Object.keys(nuevo).length){ $("#e_vT").textContent="Escribe las piezas de al menos una talla"; bad=true; }
   // mismo lote y tipo ya contado en esta sala (al añadir): se avisa para no duplicar
   if(!bad&&!d.editando&&invLineas().some(y=>y.sala===d.sala&&normLI(y.lote)===d.lote&&(y.tipo||"")===d.tipo)){ $("#e_vLote").textContent="Este lote ya está contado en esta sala con ese tipo. Ábrelo desde la lista para corregirlo."; bad=true; }
   if(bad){ toast("Revisa los campos marcados"); return; }
+  const enApp=salasApp(d.lote);
+  if(enApp.length&&!d.avisado){ d.avisado=true; ask(`Según la app, el lote ${d.lote} está en ${enApp.map(salaCorta).join(", ")}. Si lo guardas aquí podría contarse dos veces. ¿Guardar igualmente?`,"Guardar").then(ok=>{ if(ok) guardarInv(seguir); else d.avisado=false; }); return; }
   const n=new Date(), hora=String(n.getHours()).padStart(2,"0")+":"+String(n.getMinutes()).padStart(2,"0"), inv=invActual(), x=SALA[d.sala];
   const previas={}; (d.ids||[]).forEach(id=>{ const y=state.inv[id]; if(y) previas[y.talla]=y; });
   Object.keys(previas).forEach(t=>{ if(!nuevo[t]) commitInv(Object.assign({},previas[t],{deleted:true})); });
   Object.keys(nuevo).forEach(t=>{ const prev=previas[t];
-    commitInv({id:prev?prev.id:uid(),inventario:inv,fecha:d.fecha,sala:d.sala,salaNombre:x.n,ordenSala:x.o,lote:d.lote,tipo:d.tipo,talla:t,piezas:nuevo[t].piezas,pesoMedio:nuevo[t].pesoMedio,hora:prev?prev.hora:hora,deleted:false}); });
+    commitInv({id:prev?prev.id:uid(),inventario:inv,fecha:d.fecha,sala:d.sala,salaNombre:x.n,ordenSala:x.o,lote:d.lote,tipo:d.tipo,talla:t,palets:nuevo[t].palets,sueltas:nuevo[t].sueltas,piezas:nuevo[t].piezas,pesoMedio:nuevo[t].pesoMedio,hora:prev?prev.hora:hora,deleted:false}); });
   toast(`Lote ${d.lote} guardado en ${x.s}`);
-  if(seguir){ draft={sala:d.sala,lote:"",tipo:d.tipo,fecha:d.fecha,p:{},k:{},ids:[],editando:false}; go({name:"invForm"}); }
+  if(seguir){ draft={sala:d.sala,lote:"",tipo:d.tipo,fecha:d.fecha,l:{},p:{},k:{},ids:[],editando:false}; go({name:"invForm"}); }
   else go({name:"invSala",sala:d.sala});
 }
 // Pasa un lote del inventario a la APP CALIDAD: tallas, piezas y ubicación
@@ -1011,21 +1062,27 @@ function xlsxHojas(hojas){
   return zip(files);
 }
 function excelInventario(){
-  const inv=invActual(), ls=invLineas(inv).slice().sort((a,b)=>(a.ordenSala||0)-(b.ordenSala||0)||a.lote.localeCompare(b.lote)||(a.tipo||"").localeCompare(b.tipo||"")||TALLAS.indexOf(a.talla)-TALLAS.indexOf(b.talla));
-  if(!ls.length){ toast("Este inventario está vacío"); return; }
-  const agr=(f)=>{ const g={}; ls.forEach(x=>{ const k=f(x); const o=(g[k]=g[k]||{p:0,k:0,sp:0}); o.p+=x.piezas||0; const kk=kgLinea(x); if(kk==null) o.sp+=x.piezas||0; else o.k+=kk; }); return g; };
-  const totFila=(lbl,o,n)=>[["s",lbl,1]].concat(Array(n).fill(["s",""])).concat([["n",o.p,7],["n",Math.round(o.k*100)/100,4]]);
-  const T=sumar(ls);
-  const det={nombre:"Detalle",cols:["Inventario","Fecha recuento","Sala","Lote","Tipo de producto","Talla","Nº piezas","Peso medio (kg)","Kg"],anchos:[22,13,24,12,42,8,11,15,13],
-    filas:ls.map(x=>[["s",inv],["d",x.fecha],["s",SALA[x.sala]?SALA[x.sala].n:x.salaNombre],["s",x.lote],["s",x.tipo||"Sin especificar"],["s",x.talla],["n",x.piezas,7],["n",x.pesoMedio,3],["n",kgLinea(x),4]])};
-  const gT=agr(x=>x.tipo||"Sin especificar"), gS=agr(x=>x.sala), gL=agr(x=>x.lote+"|"+(x.tipo||"Sin especificar"));
-  const porTipo={nombre:"Por tipo de producto",cols:["Tipo de producto","Nº piezas","Kg","Piezas sin peso medio"],anchos:[46,12,15,20],
-    filas:Object.keys(gT).sort().map(k=>[["s",k],["n",gT[k].p,7],["n",Math.round(gT[k].k*100)/100,4],["n",gT[k].sp||null,7]]).concat([[["s","TOTAL"],["n",T.p,7],["n",T.k,4],["n",T.sinPeso||null,7]]])};
-  const porSala={nombre:"Por sala",cols:["Sala","Nº piezas","Kg","Piezas sin peso medio"],anchos:[26,12,15,20],
-    filas:INV_SALAS.filter(x=>gS[x.c]).map(x=>[["s",x.n],["n",gS[x.c].p,7],["n",Math.round(gS[x.c].k*100)/100,4],["n",gS[x.c].sp||null,7]]).concat([[["s","TOTAL"],["n",T.p,7],["n",T.k,4],["n",T.sinPeso||null,7]]])};
-  const porLote={nombre:"Por lote",cols:["Lote","Tipo de producto","Nº piezas","Kg","Piezas sin peso medio"],anchos:[12,46,12,15,20],
-    filas:Object.keys(gL).sort().map(k=>{ const [l,t]=k.split("|"); return [["s",l],["s",t],["n",gL[k].p,7],["n",Math.round(gL[k].k*100)/100,4],["n",gL[k].sp||null,7]]; }).concat([[["s","TOTAL"],["s",""],["n",T.p,7],["n",T.k,4],["n",T.sinPeso||null,7]]])};
-  const bytes=xlsxHojas([porTipo,porSala,porLote,det]);
+  const inv=invActual(), ordF=x=>FASES.indexOf(faseDe(x)), ordS=x=>x.sala&&SALA[x.sala]?SALA[x.sala].o:99;
+  const ls=invLineas(inv).concat(lineasAuto()).sort((a,b)=>ordF(a)-ordF(b)||ordS(a)-ordS(b)||normLI(a.lote).localeCompare(normLI(b.lote))||(a.tipo||"").localeCompare(b.tipo||"")||TALLAS.indexOf(a.talla)-TALLAS.indexOf(b.talla));
+  if(!ls.length){ toast("No hay existencias que exportar"); return; }
+  const r2=v=>Math.round(v*100)/100;
+  const agr=f=>{ const g=new Map(); ls.forEach(x=>{ const k=f(x); const o=g.get(k)||{p:0,k:0,sp:0}; o.p+=x.piezas||0; const kk=kgLinea(x); if(kk==null) o.sp+=x.piezas||0; else o.k+=kk; g.set(k,o); }); return g; };
+  const T=sumar(ls), totRow=n=>[["s","TOTAL"]].concat(Array(n).fill(["s",""])).concat([["n",T.p,7],["n",T.k,4],["n",T.sinPeso||null,7]]);
+  const resumen=(nombre,cols,anchos,f,orden)=>{ const g=agr(f); const ks=[...g.keys()].sort(orden||((a,b)=>a.localeCompare(b)));
+    return {nombre,cols:cols.concat(["Nº piezas","Kg","Piezas sin peso medio"]),anchos:anchos.concat([12,15,20]),
+      filas:ks.map(k=>k.split("|").map(v=>["s",v]).concat([["n",g.get(k).p,7],["n",r2(g.get(k).k),4],["n",g.get(k).sp||null,7]])).concat([totRow(cols.length-1)])}; };
+  const nomSala=x=>x.sala&&SALA[x.sala]?SALA[x.sala].n:(x.salaNombre||"Sin ubicar");
+  const det={nombre:"Detalle",cols:["Fase","Sala","Lote","Tipo de producto","Talla","Palets","Piezas sueltas","Nº piezas","Peso medio (kg)","Kg","Origen del dato","Fecha recuento"],anchos:[13,26,12,40,13,8,13,11,15,13,30,14],
+    filas:ls.map(x=>[["s",faseDe(x)],["s",nomSala(x)],["s",x.lote],["s",x.tipo||"Sin especificar"],["s",x.talla],["n",x.palets,7],["n",x.sueltas,7],["n",x.piezas,7],["n",x.pesoMedio,3],["n",kgLinea(x),4],
+      ["s",x.auto?(x.pesoMedio!=null?"APP CALIDAD (peso medio de entrada)":"APP CALIDAD"):"Recuento"],x.auto?["s",""]:["d",x.fecha]])};
+  const hojas=[
+    resumen("Por fase",["Fase"],[16],x=>faseDe(x),(a,b)=>FASES.indexOf(a)-FASES.indexOf(b)),
+    resumen("Por tipo de producto",["Tipo de producto"],[46],x=>x.tipo||"Sin especificar"),
+    resumen("Por tipo y talla",["Tipo de producto","Talla"],[46,13],x=>(x.tipo||"Sin especificar")+"|"+x.talla,(a,b)=>{ const [ta,za]=a.split("|"),[tb,zb]=b.split("|"); return ta.localeCompare(tb)||TALLAS.indexOf(za)-TALLAS.indexOf(zb); }),
+    resumen("Por sala",["Fase","Sala"],[14,28],x=>faseDe(x)+"|"+nomSala(x),(a,b)=>{ const [fa,sa]=a.split("|"),[fb,sb]=b.split("|"); const oa=SALAS.find(y=>y.n===sa), ob=SALAS.find(y=>y.n===sb); return FASES.indexOf(fa)-FASES.indexOf(fb)||((oa?oa.o:99)-(ob?ob.o:99)); }),
+    resumen("Por lote",["Lote","Tipo de producto"],[12,46],x=>normLI(x.lote)+"|"+(x.tipo||"Sin especificar")),
+    det];
+  const bytes=xlsxHojas(hojas);
   const url=URL.createObjectURL(new Blob([bytes],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
   const a=document.createElement("a"); a.href=url; a.download=`${inv.replace(/[^\wáéíóúñÁÉÍÓÚÑ -]/g,"").trim()} - ${today()}.xlsx`; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); },3000);
   toast("Excel descargado");
@@ -1417,6 +1474,7 @@ function bindView(){
     $("#invSel").onchange=e=>{ state.invSel=e.target.value; persist(); render(); };
     $("#invNuevo").onclick=()=>go({name:"invNuevo"});
     app.querySelectorAll("[data-isala]").forEach(b=>b.onclick=()=>go({name:"invSala",sala:b.dataset.isala}));
+    app.querySelectorAll("[data-iauto]").forEach(b=>b.onclick=()=>go({name:"invAuto",sala:b.dataset.iauto}));
     app.querySelectorAll("[data-tras]").forEach(b=>b.onclick=async()=>{ const lt=b.dataset.tras, xs=invLineas().filter(y=>normLI(y.lote)===normLI(lt)), t=sumar(xs), ya=loteDeNombre(lt);
       if(!await ask(`¿${ya?"Actualizar":"Pasar"} el lote ${lt} en la APP CALIDAD con ${fmtN(t.p,0)} piezas en ${[...new Set(xs.map(x=>salaCorta(x.sala)))].join(" y ")}? ${ya?"Se actualizan sus piezas por talla y su ubicación.":"Se dará de alta como lote anterior con sus tallas y ubicación."}`,ya?"Actualizar":"Pasar")) return;
       const r=traspasar(lt); toast(r.ok?`Lote ${lt} ${r.nuevo?"pasado":"actualizado"} en Calidad`:"No se pudo pasar"); if(r.avisos&&r.avisos.length) setTimeout(()=>ask(r.avisos.join(". ")+".","Entendido"),400); render(); });
@@ -1427,6 +1485,7 @@ function bindView(){
     $("#invClave").onclick=()=>go({name:"invClave"});
     $("#invSalir").onclick=()=>{ cerrarSesion(); toast("Sesión cerrada"); go({name:"home"}); };
   }
+  else if(view.name==="invAuto"){ app.querySelectorAll("[data-lote]").forEach(b=>b.onclick=()=>go({name:"lote",id:b.dataset.lote})); }
   else if(view.name==="invNuevo"){
     $("#nInvOk").onclick=()=>{ const n=$("#nInv").value.trim(); if(!n){ toast("Escribe un nombre"); return; } state.invSel=n; persist(); toast("Inventario «"+n+"» iniciado"); go({name:"inv"}); };
   }
@@ -1438,17 +1497,20 @@ function bindView(){
       const salt=uid()+uid(); state.cfgAdmin={usuario:u,salt,hash:await hashClave(u,p1,salt)}; state.pendCfg=true; persist(); sync(); toast("Contraseña cambiada"); go({name:"inv"}); };
   }
   else if(view.name==="invSala"){
-    $("#invAdd").onclick=()=>{ draft={sala:view.sala,lote:"",tipo:"",fecha:today(),p:{},k:{},ids:[],editando:false}; go({name:"invForm"}); };
+    $("#invAdd").onclick=()=>{ draft={sala:view.sala,lote:"",tipo:"",fecha:today(),l:{},p:{},k:{},ids:[],editando:false}; go({name:"invForm"}); };
     app.querySelectorAll("[data-igrp]").forEach(b=>b.onclick=()=>{ const [lt,tp]=b.dataset.igrp.split("|"); const xs=invLineas().filter(y=>y.sala===view.sala&&y.lote===lt&&(y.tipo||"")===tp);
-      draft={sala:view.sala,lote:lt,tipo:tp,fecha:xs[0].fecha,p:Object.fromEntries(xs.map(y=>[y.talla,y.piezas])),k:Object.fromEntries(xs.map(y=>[y.talla,y.pesoMedio])),ids:xs.map(y=>y.id),editando:true}; go({name:"invForm"}); });
+      draft={sala:view.sala,lote:lt,tipo:tp,fecha:xs[0].fecha,l:Object.fromEntries(xs.map(y=>[y.talla,y.palets])),p:Object.fromEntries(xs.map(y=>[y.talla,y.palets==null&&y.sueltas==null?y.piezas:y.sueltas])),k:Object.fromEntries(xs.map(y=>[y.talla,y.pesoMedio])),ids:xs.map(y=>y.id),editando:true}; go({name:"invForm"}); });
   }
   else if(view.name==="invForm"){
     $("#f").onsubmit=e=>e.preventDefault();
     $("#cancel").onclick=()=>go({name:"invSala",sala:draft.sala});
-    const calc=()=>{ let tp=0,tk=0,sp=0; TALLAS.forEach(t=>{ const p=parseNum(document.querySelector(`[data-vp="${t}"]`).value), k=parseNum(document.querySelector(`[data-vk="${t}"]`).value), c=document.querySelector(`[data-vt="${t}"]`);
-        if(p>0&&k>0&&!Number.isNaN(p)&&!Number.isNaN(k)){ c.textContent=fmtN(p*k,2); tk+=p*k; } else c.textContent=""; if(p>0&&!Number.isNaN(p)){ tp+=p; if(!(k>0)) sp+=p; } });
+    const calc=()=>{ let tp=0,tk=0,sp=0; TALLAS.forEach(t=>{ const pl=parseNum(document.querySelector(`[data-vl="${t}"]`).value), ps=parseNum(document.querySelector(`[data-vp="${t}"]`).value), k=parseNum(document.querySelector(`[data-vk="${t}"]`).value), c=document.querySelector(`[data-vt="${t}"]`);
+        const p=(pl>0?pl*PALET:0)+(ps>0?ps:0);
+        if(p>0){ c.textContent=`= ${fmtN(p,0)} piezas${k>0?` · ${fmtN(p*k,2)} kg`:""}`; tp+=p; if(k>0) tk+=p*k; else sp+=p; } else c.textContent=""; });
       $("#vTot").innerHTML=tp?`Total: ${fmtN(tp,0)} piezas · ${fmtN(tk,2)} kg${sp?` <span class="tag warn">${fmtN(sp,0)} sin peso medio</span>`:""}`:""; };
-    app.querySelectorAll("[data-vp],[data-vk]").forEach(i=>i.addEventListener("input",calc)); calc();
+    app.querySelectorAll("[data-vl],[data-vp],[data-vk]").forEach(i=>i.addEventListener("input",calc)); calc();
+    const avisoDob=()=>{ const v=$("#vLote").value.trim(), sl=v?salasApp(v):[]; $("#vDob").innerHTML=sl.length?`<div class="card" style="border-color:var(--bad);margin:0 0 12px;padding:12px 14px">⚠ Según la app, este lote está en <b>${sl.map(salaCorta).join(", ")}</b>. Comprueba que no se cuente dos veces.</div>`:""; };
+    $("#vLote").addEventListener("input",avisoDob); avisoDob();
     $("#vSave").onclick=()=>guardarInv(false); const nx=$("#vNext"); if(nx) nx.onclick=()=>guardarInv(true);
     $("#vLote").addEventListener("change",()=>{ const l=loteDeNombre($("#vLote").value); const tps=l?tiposDe(l).filter(Boolean):[]; if(tps.length===1&&!$("#vTipo").value) $("#vTipo").value=tps[0]; });
     const dl=$("#vDel"); if(dl) dl.onclick=async()=>{ if(await ask(`¿Quitar el lote ${draft.lote} de ${SALA[draft.sala].s} en este inventario?`,"Quitar")){ draft.ids.forEach(id=>{ const y=state.inv[id]; if(y) commitInv(Object.assign({},y,{deleted:true})); }); toast("Lote quitado"); go({name:"invSala",sala:draft.sala}); } };
@@ -1701,7 +1763,7 @@ function desdeServidor(datos){
   const admin = cf.admin_hash ? {usuario:cf.admin_usuario,salt:cf.admin_salt,hash:cf.admin_hash} : null;
   const inv = datos.Inventario ? objetos(datos.Inventario).map(r=>{ const id=sv(r["ID app"]); if(!id) return null; const sc=SALAS.find(x=>x.n===sv(r["Sala"]));
     return {id,inventario:sv(r["Inventario"]),fecha:sv(r["Fecha recuento"]),sala:sc?sc.c:"",salaNombre:sv(r["Sala"]),ordenSala:sc?sc.o:0,lote:sv(r["Lote"]),tipo:sv(r["Tipo"]),talla:sv(r["Talla"]),
-      piezas:nv(r["Nº piezas"]),pesoMedio:nv(r["Peso medio (kg)"]),hora:sv(r["Hora registro"])}; }).filter(Boolean) : null;
+      palets:nv(r["Palets"]),sueltas:nv(r["Piezas sueltas"]),piezas:nv(r["Nº piezas"]),pesoMedio:nv(r["Peso medio (kg)"]),hora:sv(r["Hora registro"])}; }).filter(Boolean) : null;
   const cams = datos["Cámaras llenas"] ? objetos(datos["Cámaras llenas"]).map(r=>{ const id=sv(r["ID app"]); if(!id) return null; const sc=SALAS.find(x=>x.n===sv(r["Sala"]));
     return sc&&{id,sala:sc.c,salaNombre:sc.n,ordenSala:sc.o,fechaLlena:sv(r["Fecha llena"]),fechaVacia:sv(r["Fecha vaciada"]),obs:sv(r["Observaciones"])}; }).filter(Boolean) : null;
   return {lotes:Object.values(lotes), lects, incs, mants, admin, inv, cams};
@@ -1735,7 +1797,7 @@ async function sync(manual){
     Object.keys(state.pendV).forEach(id=>{ if(!state.inv[id]) delete state.pendV[id]; });
     for(const id of Object.keys(state.pendV)){ const x=state.inv[id]; sentV[id]=x.updatedAt;
       if(x.deleted) del.push({t:"Inventario",col:"ID app",val:id});
-      else put.push({t:"Inventario",fila:{"Inventario":x.inventario,"Fecha recuento":dmy(x.fecha),"Sala":x.salaNombre,"Lote":x.lote,"Tipo":x.tipo||"","Talla":x.talla,"Nº piezas":x.piezas,
+      else put.push({t:"Inventario",fila:{"Inventario":x.inventario,"Fecha recuento":dmy(x.fecha),"Sala":x.salaNombre,"Lote":x.lote,"Tipo":x.tipo||"","Talla":x.talla,"Palets":x.palets??"","Piezas sueltas":x.sueltas??"","Nº piezas":x.piezas,
         "Peso medio (kg)":x.pesoMedio,"Kg":kgLinea(x),"Hora registro":x.hora,"ID app":id,"Orden sala":x.ordenSala,"Orden talla":TALLAS.indexOf(x.talla)+1}}); }
     if(sentCfg&&state.cfgAdmin){ const a=state.cfgAdmin; [["admin_usuario",a.usuario],["admin_salt",a.salt],["admin_hash",a.hash]].forEach(([k,v])=>put.push({t:"_Config",fila:{"Clave":k,"Valor":v,"ID app":k}})); }
     const sentC={};
